@@ -1,0 +1,35 @@
+{
+  "name": "windows-diagnostics-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Windows system diagnostics and crash analysis",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "windows",
+    "diagnostics",
+    "system-monitoring",
+    "crash-analysis"
+  ],
+  "author": "Windows Diagnostics MCP",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "windows-diagnostics-mcp": "./build/index.js"
+  },
+  "files": [
+    "build/**/*",
+    "README.md"
+  ]
+}

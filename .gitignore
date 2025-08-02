@@ -1,0 +1,7 @@
+node_modules/
+<<<<<<< HEAD
+package-lock.json
+SystemRebootAnalysis.ps1
+=======
+package-lock.json
+>>>>>>> c1e3249 (first commit)
