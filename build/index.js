@@ -3,193 +3,14 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import { spawn } from 'child_process';
-// PowerShell diagnostic script embedded as a string - FIXED VERSION
-const DIAGNOSTIC_SCRIPT = `
-param(
-    [int]$DaysBack = 7,
-    [switch]$Detailed,
-    [switch]$JsonOutput
-)
-
-# Function to get event log entries with error handling
-function Get-SafeEventLog {
-    param($LogName, $StartTime, $EventIds)
-    
-    try {
-        Get-WinEvent -FilterHashtable @{
-            LogName = $LogName
-            StartTime = $StartTime
-            ID = $EventIds
-        } -ErrorAction SilentlyContinue | Sort-Object TimeCreated -Descending
-    }
-    catch {
-        return @()
-    }
-}
-
-$StartDate = (Get-Date).AddDays(-$DaysBack)
-$Results = @{
-    ShutdownEvents = @()
-    BSODEvents = @()
-    ApplicationCrashes = @()
-    UpdateEvents = @()
-    DriverIssues = @()
-    HardwareErrors = @()
-    SystemInfo = @{}
-    MemoryDumps = @()
-    Summary = @{}
-}
-
-# 1. Check for unexpected shutdowns and reboots
-$ShutdownEvents = Get-SafeEventLog -LogName "System" -StartTime $StartDate -EventIds @(1074, 1076, 6005, 6006, 6008, 6009, 6013)
-
-foreach ($Event in $ShutdownEvents) {
-    $EventInfo = @{
-        Type = "Shutdown/Reboot"
-        Time = $Event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-        EventID = $Event.Id
-        Source = $Event.ProviderName
-        Description = ""
-        Details = if($Detailed) { $Event.Message } else { $Event.Message.Split("\`n")[0] }
-    }
-    
-    switch ($Event.Id) {
-        1074 { $EventInfo.Description = "System shutdown initiated" }
-        1076 { $EventInfo.Description = "System shutdown reason" }
-        6005 { $EventInfo.Description = "Event Log service started (system boot)" }
-        6006 { $EventInfo.Description = "Event Log service stopped (system shutdown)" }
-        6008 { $EventInfo.Description = "Unexpected shutdown detected" }
-        6009 { $EventInfo.Description = "System started" }
-        6013 { $EventInfo.Description = "System uptime" }
-    }
-    
-    $Results.ShutdownEvents += $EventInfo
-}
-
-# 2. Check for Blue Screen of Death (BSOD) events
-$BSODEvents = Get-SafeEventLog -LogName "System" -StartTime $StartDate -EventIds @(41, 1001, 1003)
-
-foreach ($Event in $BSODEvents) {
-    $EventInfo = @{
-        Type = "BSOD/Critical Error"
-        Time = $Event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-        EventID = $Event.Id
-        Source = $Event.ProviderName
-        Description = ""
-        Details = if($Detailed) { $Event.Message } else { $Event.Message.Split("\`n")[0] }
-    }
-    
-    switch ($Event.Id) {
-        41 { $EventInfo.Description = "Kernel-Power critical error (unexpected shutdown)" }
-        1001 { $EventInfo.Description = "Windows Error Reporting BSOD" }
-        1003 { $EventInfo.Description = "System crash dump" }
-    }
-    
-    $Results.BSODEvents += $EventInfo
-}
-
-# 3. Check for application crashes
-$AppCrashes = Get-SafeEventLog -LogName "Application" -StartTime $StartDate -EventIds @(1000, 1001, 1002)
-$CrashSummary = $AppCrashes | Group-Object -Property {$_.Message.Split()[0]} | Sort-Object Count -Descending | Select-Object -First 10
-
-foreach ($Crash in $CrashSummary) {
-    $Results.ApplicationCrashes += @{
-        Application = $Crash.Name
-        CrashCount = $Crash.Count
-        LatestCrash = ($Crash.Group | Sort-Object TimeCreated -Descending | Select-Object -First 1).TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-    }
-}
-
-# 4. Check Windows Update related reboots
-$UpdateEvents = Get-SafeEventLog -LogName "System" -StartTime $StartDate -EventIds @(43, 44, 19, 20, 21, 22)
-
-foreach ($Event in $UpdateEvents) {
-    $Results.UpdateEvents += @{
-        Time = $Event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-        EventID = $Event.Id
-        Source = $Event.ProviderName
-        Description = "Windows Update related reboot"
-    }
-}
-
-# 5. Check for driver issues
-$DriverEvents = Get-SafeEventLog -LogName "System" -StartTime $StartDate -EventIds @(219, 7026, 7000, 7009, 7031)
-$DriverIssues = $DriverEvents | Group-Object -Property ProviderName | Sort-Object Count -Descending | Select-Object -First 5
-
-foreach ($Driver in $DriverIssues) {
-    $Results.DriverIssues += @{
-        DriverService = $Driver.Name
-        IssueCount = $Driver.Count
-    }
-}
-
-# 6. Check for hardware errors
-$HardwareEvents = Get-SafeEventLog -LogName "System" -StartTime $StartDate -EventIds @(6, 11, 51, 98, 104)
-
-foreach ($Event in $HardwareEvents) {
-    $Results.HardwareErrors += @{
-        Time = $Event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-        Source = $Event.ProviderName
-        Details = if($Detailed) { $Event.Message } else { $Event.Message.Split("\`n")[0] }
-    }
-}
-
-# 7. System uptime and reboot frequency
-$Uptime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
-$UptimeDuration = (Get-Date) - $Uptime
-
-$Results.SystemInfo = @{
-    CurrentUptimeDays = $UptimeDuration.Days
-    CurrentUptimeHours = $UptimeDuration.Hours
-    CurrentUptimeMinutes = $UptimeDuration.Minutes
-    LastBootTime = $Uptime.ToString("yyyy-MM-dd HH:mm:ss")
-    RebootCountInPeriod = $Results.ShutdownEvents.Count
-    OSVersion = (Get-CimInstance -ClassName Win32_OperatingSystem).Caption
-    TotalMemoryGB = [math]::Round((Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)
-}
-
-# 8. Check for memory dumps
-$DumpPath = "$env:SystemRoot\\MEMORY.DMP"
-$MiniDumpPath = "$env:SystemRoot\\Minidump\\*.dmp"
-
-if (Test-Path $DumpPath) {
-    $DumpFile = Get-Item $DumpPath
-    $Results.MemoryDumps += @{
-        Type = "Full"
-        Path = $DumpFile.FullName
-        LastWrite = $DumpFile.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
-        SizeMB = [math]::Round($DumpFile.Length/1MB, 2)
-    }
-}
-
-$MiniDumps = Get-ChildItem $MiniDumpPath -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 5
-foreach ($Dump in $MiniDumps) {
-    $Results.MemoryDumps += @{
-        Type = "Mini"
-        Path = $Dump.FullName
-        LastWrite = $Dump.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
-        SizeKB = [math]::Round($Dump.Length/1KB, 2)
-    }
-}
-
-# Summary - FIXED the CrashCount calculation
-$TotalCrashes = 0
-if ($Results.ApplicationCrashes.Count -gt 0) {
-    $TotalCrashes = ($Results.ApplicationCrashes | ForEach-Object { $_.CrashCount } | Measure-Object -Sum).Sum
-}
-
-$Results.Summary = @{
-    TotalEventsAnalyzed = ($Results.ShutdownEvents.Count + $Results.BSODEvents.Count + $Results.UpdateEvents.Count + $Results.HardwareErrors.Count)
-    CriticalBSODCount = $Results.BSODEvents.Count
-    UnexpectedShutdownCount = ($Results.ShutdownEvents | Where-Object {$_.EventID -eq 6008}).Count
-    TotalApplicationCrashes = $TotalCrashes
-    AnalysisPeriodDays = $DaysBack
-    GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-}
-
-# Output as JSON
-$Results | ConvertTo-Json -Depth 10
-`;
+import * as path from 'path';
+import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DIAGNOSTIC_SCRIPT_PATH = path.resolve(__dirname, 'diagnostic.ps1');
+const REGISTRY_SCRIPT_PATH = path.resolve(__dirname, 'windows_registry.ps1');
+const DIAGNOSTIC_SCRIPT = fs.readFileSync(DIAGNOSTIC_SCRIPT_PATH, 'utf-8');
+const REGISTRY_SCRIPT = fs.readFileSync(REGISTRY_SCRIPT_PATH, 'utf-8');
 class WindowsDiagnosticsServer {
     server;
     constructor() {
@@ -282,6 +103,65 @@ class WindowsDiagnosticsServer {
                             },
                         },
                     },
+                    {
+                        name: 'search_registry',
+                        description: 'Search the Windows registry by keyword',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                searchTerm: {
+                                    type: 'string',
+                                    description: 'Keyword to search for in the registry'
+                                },
+                                maxResults: {
+                                    type: 'number',
+                                    description: 'Maximum number of results to return (default: 50)',
+                                    default: 50
+                                }
+                            },
+                            required: ['searchTerm']
+                        }
+                    },
+                    {
+                        name: 'analyze_startup_programs',
+                        description: 'Analyze startup programs for suspicious entries',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {},
+                        }
+                    },
+                    {
+                        name: 'scan_system_components',
+                        description: 'Scan system components like services, drivers, and uninstall entries for issues',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {},
+                        }
+                    },
+                    {
+                        name: 'find_orphaned_entries',
+                        description: 'Find orphaned registry entries pointing to non-existent files',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {},
+                        }
+                    },
+                    {
+                        name: 'get_registry_health',
+                        description: 'Get an overall registry health assessment',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {},
+                        }
+                    },
+                    {
+                        name: 'scan_security_risks',
+                        description: 'Scan the registry for potential security risks',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {},
+                        }
+                    }
                 ],
             };
         });
@@ -299,6 +179,18 @@ class WindowsDiagnosticsServer {
                         return await this.getSystemUptime();
                     case 'analyze_system_stability':
                         return await this.analyzeSystemStability(args);
+                    case 'search_registry':
+                        return await this.searchRegistry(args);
+                    case 'analyze_startup_programs':
+                        return await this.analyzeStartupPrograms();
+                    case 'scan_system_components':
+                        return await this.scanSystemComponents();
+                    case 'find_orphaned_entries':
+                        return await this.findOrphanedEntries();
+                    case 'get_registry_health':
+                        return await this.getRegistryHealth();
+                    case 'scan_security_risks':
+                        return await this.scanSecurityRisks();
                     default:
                         throw new Error(`Unknown tool: ${name}`);
                 }
@@ -315,14 +207,10 @@ class WindowsDiagnosticsServer {
             }
         });
     }
-    // FIXED: Proper PowerShell parameter passing
     async runPowerShellScript(script, params = {}) {
         return new Promise((resolve, reject) => {
-            // Build proper PowerShell parameters
             const psArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command'];
-            // Add the script
             let fullScript = script;
-            // Add parameters properly
             const paramStrings = [];
             Object.entries(params).forEach(([key, value]) => {
                 if (typeof value === 'boolean' && value) {
@@ -358,7 +246,7 @@ class WindowsDiagnosticsServer {
                         resolve(result);
                     }
                     catch (parseError) {
-                        reject(new Error(`Failed to parse JSON output: ${parseError}\nOutput: ${stdout}`));
+                        reject(new Error(`Failed to parse JSON output: ${parseError instanceof Error ? parseError.message : String(parseError)}\nOutput: ${stdout}`));
                     }
                 }
             });
@@ -380,46 +268,7 @@ class WindowsDiagnosticsServer {
             content: [
                 {
                     type: 'text',
-                    text: `# Windows System Diagnostics Report
-
-## Summary
-- **Analysis Period**: ${result.Summary.AnalysisPeriodDays} days
-- **Total Events**: ${result.Summary.TotalEventsAnalyzed}
-- **Critical BSOD Events**: ${result.Summary.CriticalBSODCount}
-- **Unexpected Shutdowns**: ${result.Summary.UnexpectedShutdownCount}
-- **Application Crashes**: ${result.Summary.TotalApplicationCrashes}
-- **Generated**: ${result.Summary.GeneratedAt}
-
-## System Information
-- **OS**: ${result.SystemInfo.OSVersion}
-- **Last Boot**: ${result.SystemInfo.LastBootTime}
-- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes
-- **Total Memory**: ${result.SystemInfo.TotalMemoryGB} GB
-- **Reboots in Period**: ${result.SystemInfo.RebootCountInPeriod}
-
-## Critical Events
-${result.BSODEvents.length > 0 ? `### BSOD Events (⚠️ Critical)
-${result.BSODEvents.map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}` : '### BSOD Events\n- No BSOD events found ✅'}
-
-${result.ShutdownEvents.filter((e) => e.EventID === 6008).length > 0 ? `### Unexpected Shutdowns (⚠️ Warning)
-${result.ShutdownEvents.filter((e) => e.EventID === 6008).map((e) => `- **${e.Time}**: ${e.Description}`).join('\n')}` : '### Unexpected Shutdowns\n- No unexpected shutdowns found ✅'}
-
-## Application Crashes
-${result.ApplicationCrashes.length > 0 ? result.ApplicationCrashes.map((c) => `- **${c.Application}**: ${c.CrashCount} crashes (Latest: ${c.LatestCrash})`).join('\n') : '- No application crashes found ✅'}
-
-## Hardware & Driver Issues
-${result.HardwareErrors.length > 0 ? `### Hardware Errors
-${result.HardwareErrors.map((e) => `- **${e.Time}**: ${e.Source}`).join('\n')}` : '### Hardware Errors\n- No hardware errors found ✅'}
-
-${result.DriverIssues.length > 0 ? `### Driver Issues
-${result.DriverIssues.map((d) => `- **${d.DriverService}**: ${d.IssueCount} issues`).join('\n')}` : '### Driver Issues\n- No driver issues found ✅'}
-
-## Memory Dumps
-${result.MemoryDumps.length > 0 ? result.MemoryDumps.map((d) => `- **${d.Type} Dump**: ${d.Path} (Last Modified: ${d.LastWrite}, Size: ${d.SizeMB || d.SizeKB} ${d.SizeMB ? 'MB' : 'KB'})`).join('\n') : '- No memory dumps found'}
-
-## Recent System Events
-${result.ShutdownEvents.slice(0, 5).map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}
-`,
+                    text: `# Windows System Diagnostics Report\n\n## Summary\n- **Analysis Period**: ${result.Summary.AnalysisPeriodDays} days\n- **Total Events**: ${result.Summary.TotalEventsAnalyzed}\n- **Critical BSOD Events**: ${result.Summary.CriticalBSODCount}\n- **Unexpected Shutdowns**: ${result.Summary.UnexpectedShutdownCount}\n- **Application Crashes**: ${result.Summary.TotalApplicationCrashes}\n- **Generated**: ${result.Summary.GeneratedAt}\n\n## System Information\n- **OS**: ${result.SystemInfo.OSVersion}\n- **Last Boot**: ${result.SystemInfo.LastBootTime}\n- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes\n- **Total Memory**: ${result.SystemInfo.TotalMemoryGB} GB\n- **Reboots in Period**: ${result.SystemInfo.RebootCountInPeriod}\n\n## Critical Events\n${result.BSODEvents.length > 0 ? `### BSOD Events (⚠️ Critical)\n${result.BSODEvents.map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}` : '### BSOD Events\n- No BSOD events found ✅'}\n\n${result.ShutdownEvents.filter((e) => e.EventID === 6008).length > 0 ? `### Unexpected Shutdowns (⚠️ Warning)\n${result.ShutdownEvents.filter((e) => e.EventID === 6008).map((e) => `- **${e.Time}**: ${e.Description}`).join('\n')}` : '### Unexpected Shutdowns\n- No unexpected shutdowns found ✅'}\n\n## Application Crashes\n${result.ApplicationCrashes.length > 0 ? result.ApplicationCrashes.map((c) => `- **${c.Application}**: ${c.CrashCount} crashes (Latest: ${c.LatestCrash})`).join('\n') : '- No application crashes found ✅'}\n\n## Hardware & Driver Issues\n${result.HardwareErrors.length > 0 ? `### Hardware Errors\n${result.HardwareErrors.map((e) => `- **${e.Time}**: ${e.Source}`).join('\n')}` : '### Hardware Errors\n- No hardware errors found ✅'}\n\n${result.DriverIssues.length > 0 ? `### Driver Issues\n${result.DriverIssues.map((d) => `- **${d.DriverService}**: ${d.IssueCount} issues`).join('\n')}` : '### Driver Issues\n- No driver issues found ✅'}\n\n## Memory Dumps\n${result.MemoryDumps.length > 0 ? result.MemoryDumps.map((d) => `- **${d.Type} Dump**: ${d.Path} (Last Modified: ${d.LastWrite}, Size: ${d.SizeMB || d.SizeKB} ${d.SizeMB ? 'MB' : 'KB'})`).join('\n') : '- No memory dumps found'}\n\n## Recent System Events\n${result.ShutdownEvents.slice(0, 5).map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}`,
                 },
             ],
         };
@@ -431,15 +280,9 @@ ${result.ShutdownEvents.slice(0, 5).map((e) => `- **${e.Time}**: ${e.Description
             content: [
                 {
                     type: 'text',
-                    text: `# Shutdown and Reboot Events (Last ${daysBack} days)
-
-${result.ShutdownEvents.length > 0 ?
+                    text: `# Shutdown and Reboot Events (Last ${daysBack} days)\n\n${result.ShutdownEvents.length > 0 ?
                         result.ShutdownEvents.map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})`).join('\n')
-                        : 'No shutdown/reboot events found in the specified period.'}
-
-**Total Events**: ${result.ShutdownEvents.length}
-**Unexpected Shutdowns**: ${result.ShutdownEvents.filter((e) => e.EventID === 6008).length}
-`,
+                        : 'No shutdown/reboot events found in the specified period.'}\n\n**Total Events**: ${result.ShutdownEvents.length}\n**Unexpected Shutdowns**: ${result.ShutdownEvents.filter((e) => e.EventID === 6008).length}`,
                 },
             ],
         };
@@ -451,15 +294,9 @@ ${result.ShutdownEvents.length > 0 ?
             content: [
                 {
                     type: 'text',
-                    text: `# Blue Screen of Death (BSOD) Events (Last ${daysBack} days)
-
-${result.BSODEvents.length > 0 ?
-                        `⚠️ **CRITICAL**: ${result.BSODEvents.length} BSOD event(s) found!
-
-` + result.BSODEvents.map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})
-  Details: ${e.Details.substring(0, 200)}...`).join('\n\n')
-                        : '✅ No BSOD events found in the specified period.'}
-`,
+                    text: `# Blue Screen of Death (BSOD) Events (Last ${daysBack} days)\n\n${result.BSODEvents.length > 0 ?
+                        `⚠️ **CRITICAL**: ${result.BSODEvents.length} BSOD event(s) found!\n\n` + result.BSODEvents.map((e) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})\n  Details: ${e.Details.substring(0, 200)}...`).join('\n\n')
+                        : '✅ No BSOD events found in the specified period.'}`,
                 },
             ],
         };
@@ -470,18 +307,9 @@ ${result.BSODEvents.length > 0 ?
             content: [
                 {
                     type: 'text',
-                    text: `# System Uptime Information
-
-- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes
-- **Last Boot Time**: ${result.SystemInfo.LastBootTime}
-- **Operating System**: ${result.SystemInfo.OSVersion}
-- **Total Physical Memory**: ${result.SystemInfo.TotalMemoryGB} GB
-
-## Uptime Analysis
-${result.SystemInfo.CurrentUptimeDays > 30 ? '⚠️ System has been running for over 30 days. Consider rebooting to apply updates and clear memory.' :
+                    text: `# System Uptime Information\n\n- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes\n- **Last Boot Time**: ${result.SystemInfo.LastBootTime}\n- **Operating System**: ${result.SystemInfo.OSVersion}\n- **Total Physical Memory**: ${result.SystemInfo.TotalMemoryGB} GB\n\n## Uptime Analysis\n${result.SystemInfo.CurrentUptimeDays > 30 ? '⚠️ System has been running for over 30 days. Consider rebooting to apply updates and clear memory.' :
                         result.SystemInfo.CurrentUptimeDays > 7 ? '✅ System uptime is reasonable.' :
-                            '📝 Recent boot detected.'}
-`,
+                            '📝 Recent boot detected.'}`,
                 },
             ],
         };
@@ -494,8 +322,8 @@ ${result.SystemInfo.CurrentUptimeDays > 30 ? '⚠️ System has been running for
         const totalCrashes = result.Summary.TotalApplicationCrashes || 0;
         const hardwareErrors = result.HardwareErrors.length;
         let stabilityScore = 100;
-        let recommendations = [];
-        let issues = [];
+        const recommendations = [];
+        const issues = [];
         if (bsodCount > 0) {
             stabilityScore -= bsodCount * 20;
             issues.push(`${bsodCount} BSOD event(s)`);
@@ -534,29 +362,84 @@ ${result.SystemInfo.CurrentUptimeDays > 30 ? '⚠️ System has been running for
             content: [
                 {
                     type: 'text',
-                    text: `# System Stability Analysis (Last ${daysBack} days)
-
-## Overall Stability Score: ${stabilityScore}/100 (${stabilityRating})
-
-## Issues Detected
-${issues.length > 0 ? issues.map(issue => `- ${issue}`).join('\n') : '- No major issues detected ✅'}
-
-## Recommendations
-${recommendations.length > 0 ? recommendations.map(rec => `- ${rec}`).join('\n') : '- System appears stable, continue regular maintenance'}
-
-## Key Metrics
-- **BSOD Events**: ${bsodCount}
-- **Unexpected Shutdowns**: ${unexpectedShutdowns}
-- **Application Crashes**: ${totalCrashes}
-- **Hardware Errors**: ${hardwareErrors}
-- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days
-
-## Additional Actions
-- Run DISM health check: \`DISM /Online /Cleanup-Image /RestoreHealth\`
-- Check Windows Update for pending updates
-- Review Event Viewer for additional details
-- Consider hardware diagnostics if issues persist
-`,
+                    text: `# System Stability Analysis (Last ${daysBack} days)\n\n## Overall Stability Score: ${stabilityScore}/100 (${stabilityRating})\n\n## Issues Detected\n${issues.length > 0 ? issues.map(issue => `- ${issue}`).join('\n') : '- No major issues detected ✅'}\n\n## Recommendations\n${recommendations.length > 0 ? recommendations.map(rec => `- ${rec}`).join('\n') : '- System appears stable, continue regular maintenance'}\n\n## Key Metrics\n- **BSOD Events**: ${bsodCount}\n- **Unexpected Shutdowns**: ${unexpectedShutdowns}\n- **Application Crashes**: ${totalCrashes}\n- **Hardware Errors**: ${hardwareErrors}\n- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days\n\n## Additional Actions\n- Run DISM health check: \`DISM /Online /Cleanup-Image /RestoreHealth\`\n- Check Windows Update for pending updates\n- Review Event Viewer for additional details\n- Consider hardware diagnostics if issues persist`,
+                },
+            ],
+        };
+    }
+    async searchRegistry(args) {
+        const searchTerm = args.searchTerm ?? '';
+        const maxResults = args.maxResults ?? 50;
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, {
+            SearchTerm: searchTerm,
+            MaxResults: maxResults,
+            JsonOutput: true,
+        });
+        const searchResultsText = result.SearchResults && result.SearchResults.length > 0
+            ? result.SearchResults
+                .map(r => `- **Hive**: ${r.Hive}\n  **Key**: ${r.KeyPath}\n  **Value**: ${r.ValueName}\n  **Data**: ${r.ValueData}`)
+                .join('\n\n')
+            : 'No results found.';
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# Registry Search Results for "${searchTerm}"\n\n${searchResultsText}`,
+                },
+            ],
+        };
+    }
+    async analyzeStartupPrograms() {
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanStartup: true, JsonOutput: true });
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# Startup Program Analysis\n\n${result.StartupPrograms && result.StartupPrograms.length > 0 ? result.StartupPrograms.map(p => `- **Name**: ${p.Name}\n  **Command**: ${p.Command}\n  **Location**: ${p.Location}\n  **User**: ${p.User}\n  **Verified**: ${p.Verified}\n  **Suspicious**: ${p.Suspicious}`).join('\n\n') : 'No startup programs found.'}`,
+                },
+            ],
+        };
+    }
+    async scanSystemComponents() {
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanServices: true, ScanUninstall: true, ScanFileAssoc: true, ScanDrivers: true, JsonOutput: true });
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# System Component Scan\n\n${result.SystemComponents && result.SystemComponents.length > 0 ? result.SystemComponents.map(c => `- **Type**: ${c.Type}\n  **Name**: ${c.Name}\n  **Issue**: ${c.Issue}\n  **Details**: ${c.Details}`).join('\n\n') : 'No issues found with system components.'}`,
+                },
+            ],
+        };
+    }
+    async findOrphanedEntries() {
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { FindOrphaned: true, JsonOutput: true });
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# Orphaned Registry Entries\n\n${result.OrphanedEntries && result.OrphanedEntries.length > 0 ? result.OrphanedEntries.map(o => `- **Path**: ${o.Path}\n  **Type**: ${o.Type}`).join('\n\n') : 'No orphaned entries found.'}`,
+                },
+            ],
+        };
+    }
+    async getRegistryHealth() {
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { JsonOutput: true });
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# Registry Health Assessment\n\n- **Score**: ${result.RegistryHealth?.Score}/100\n- **Rating**: ${result.RegistryHealth?.Rating}\n- **Issues Found**: ${result.RegistryHealth?.IssuesFound}\n\n## Recommendations\n${result.RegistryHealth && result.RegistryHealth.Recommendations.length > 0 ? result.RegistryHealth.Recommendations.map(r => `- ${r}`).join('\n') : 'No recommendations.'}`,
+                },
+            ],
+        };
+    }
+    async scanSecurityRisks() {
+        const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { SecurityScan: true, JsonOutput: true });
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `# Security Risk Scan\n\n${result.SecurityFindings && result.SecurityFindings.length > 0 ? result.SecurityFindings.map(f => `- **ID**: ${f.ID}\n  **Severity**: ${f.Severity}\n  **Description**: ${f.Description}\n  **Details**: ${f.Details}\n  **Recommendation**: ${f.Recommendation}`).join('\n\n') : 'No security risks found.'}`,
                 },
             ],
         };
