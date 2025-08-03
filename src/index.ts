@@ -87,8 +87,10 @@ interface DiagnosticResults {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIAGNOSTIC_SCRIPT_PATH = path.resolve(__dirname, 'diagnostic.ps1');
 const REGISTRY_SCRIPT_PATH = path.resolve(__dirname, 'windows_registry.ps1');
+const APPS_AND_PROCESSES_SCRIPT_PATH = path.resolve(__dirname, 'apps_and_processes.ps1');
 const DIAGNOSTIC_SCRIPT = fs.readFileSync(DIAGNOSTIC_SCRIPT_PATH, 'utf-8');
 const REGISTRY_SCRIPT = fs.readFileSync(REGISTRY_SCRIPT_PATH, 'utf-8');
+const APPS_AND_PROCESSES_SCRIPT = fs.readFileSync(APPS_AND_PROCESSES_SCRIPT_PATH, 'utf-8');
 
 // Type definitions for the registry script results
 interface RegistrySearchResult {
@@ -148,6 +150,42 @@ interface RegistryDiagnosticResults {
     IssuesFound: number;
     GeneratedAt: string;
   };
+}
+
+// Type definitions for the apps and processes script results
+interface RunningProcess {
+  Name: string;
+  PID: number;
+  CPU: number;
+  MemoryMB: number;
+  User: string;
+}
+
+interface KilledProcess {
+  PID?: number;
+  Name?: string;
+  Error?: string;
+}
+
+interface StartedProcess {
+  Name?: string;
+  PID?: number;
+  Path: string;
+  Error?: string;
+}
+
+interface InstalledApplication {
+  Name: string;
+  Version: string;
+  Publisher: string;
+  InstallDate: string;
+}
+
+interface AppsAndProcessesResults {
+  RunningProcesses?: RunningProcess[];
+  KilledProcesses?: KilledProcess[];
+  StartedProcess?: StartedProcess;
+  InstalledApplications?: InstalledApplication[];
 }
 
 
@@ -308,7 +346,76 @@ class WindowsDiagnosticsServer {
 			  type: 'object',
 			  properties: {},
 			}
-		  }
+		  },
+          {
+            name: 'list_processes',
+            description: 'List running processes with optional filters',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                filterName: {
+                  type: 'string',
+                  description: 'Filter processes by name (wildcards accepted)',
+                },
+                minCPU: {
+                  type: 'number',
+                  description: 'Minimum CPU usage to include',
+                },
+                minMemoryMB: {
+                  type: 'number',
+                  description: 'Minimum memory usage in MB to include',
+                },
+              },
+            },
+          },
+          {
+            name: 'kill_process',
+            description: 'Kill a process by its PID or name',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                pid: {
+                  type: 'number',
+                  description: 'Process ID to kill',
+                },
+                name: {
+                  type: 'string',
+                  description: 'Process name to kill (all matching instances)',
+                },
+              },
+            },
+          },
+          {
+            name: 'start_process',
+            description: 'Start a new process from an executable path',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                path: {
+                  type: 'string',
+                  description: 'Full path to the executable to start',
+                },
+              },
+              required: ['path'],
+            },
+          },
+          {
+            name: 'list_installed_apps',
+            description: 'List installed applications with optional filters',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                appName: {
+                  type: 'string',
+                  description: 'Filter by application name (wildcards accepted)',
+                },
+                publisher: {
+                  type: 'string',
+                  description: 'Filter by publisher name (wildcards accepted)',
+                },
+              },
+            },
+          }
         ],
       };
     });
@@ -340,6 +447,14 @@ class WindowsDiagnosticsServer {
             return await this.getRegistryHealth();
           case 'scan_security_risks':
             return await this.scanSecurityRisks();
+          case 'list_processes':
+            return await this.listProcesses(args as { filterName?: string; minCPU?: number; minMemoryMB?: number });
+          case 'kill_process':
+            return await this.killProcess(args as { pid?: number; name?: string });
+          case 'start_process':
+            return await this.startProcess(args as { path: string });
+          case 'list_installed_apps':
+            return await this.listInstalledApps(args as { appName?: string; publisher?: string });
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -356,7 +471,7 @@ class WindowsDiagnosticsServer {
     });
   }
 
-  private async runPowerShellScript(script: string, params: { [key: string]: string | number | boolean } = {}): Promise<DiagnosticResults | RegistryDiagnosticResults> {
+  private async runPowerShellScript(script: string, params: { [key: string]: string | number | boolean | undefined } = {}): Promise<any> {
     return new Promise((resolve, reject) => {
       const psArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command'];
       let fullScript = script;
@@ -627,6 +742,75 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
         {
           type: 'text',
           text: `# Security Risk Scan\n\n${result.SecurityFindings && result.SecurityFindings.length > 0 ? result.SecurityFindings.map(f => `- **ID**: ${f.ID}\n  **Severity**: ${f.Severity}\n  **Description**: ${f.Description}\n  **Details**: ${f.Details}\n  **Recommendation**: ${f.Recommendation}`).join('\n\n') : 'No security risks found.'}`,
+        },
+      ],
+    };
+  }
+
+  private async listProcesses(args: { filterName?: string; minCPU?: number; minMemoryMB?: number }) {
+    const params = {
+      FilterName: args.filterName,
+      MinCPU: args.minCPU,
+      MinMemoryMB: args.minMemoryMB,
+      JsonOutput: true,
+    };
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Running Processes\n\n${result.RunningProcesses && result.RunningProcesses.length > 0 ? result.RunningProcesses.map(p => `- **Name**: ${p.Name}\n  **PID**: ${p.PID}\n  **CPU**: ${p.CPU}\n  **MemoryMB**: ${p.MemoryMB}\n  **User**: ${p.User}`).join('\n\n') : 'No running processes found.'}`,
+        },
+      ],
+    };
+  }
+
+  private async killProcess(args: { pid?: number; name?: string }) {
+    const params = {
+      KillPID: args.pid,
+      KillName: args.name,
+      JsonOutput: true,
+    };
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Kill Process Results\n\n${result.KilledProcesses && result.KilledProcesses.length > 0 ? result.KilledProcesses.map(p => p.Error ? `- **Error**: ${p.Error}` : `- **Killed**: PID ${p.PID}, Name ${p.Name}`).join('\n') : 'No processes killed.'}`,
+        },
+      ],
+    };
+  }
+
+  private async startProcess(args: { path: string }) {
+    const params = {
+      StartPath: args.path,
+      JsonOutput: true,
+    };
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Start Process Result\n\n${result.StartedProcess ? (result.StartedProcess.Error ? `- **Error**: ${result.StartedProcess.Error}` : `- **Started**: Name ${result.StartedProcess.Name}, PID ${result.StartedProcess.PID}, Path ${result.StartedProcess.Path}`) : 'No process started.'}`,
+        },
+      ],
+    };
+  }
+
+  private async listInstalledApps(args: { appName?: string; publisher?: string }) {
+    const params = {
+      ListInstalledApps: true,
+      AppName: args.appName,
+      Publisher: args.publisher,
+      JsonOutput: true,
+    };
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Installed Applications\n\n${result.InstalledApplications && result.InstalledApplications.length > 0 ? result.InstalledApplications.map(a => `- **Name**: ${a.Name}\n  **Version**: ${a.Version}\n  **Publisher**: ${a.Publisher}\n  **InstallDate**: ${a.InstallDate}`).join('\n\n') : 'No installed applications found.'}`,
         },
       ],
     };
