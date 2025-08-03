@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta.url)) + '/powershell_scripts';
 const DIAGNOSTIC_SCRIPT_PATH = path.resolve(__dirname, 'diagnostic.ps1');
 const REGISTRY_SCRIPT_PATH = path.resolve(__dirname, 'windows_registry.ps1');
 const APPS_AND_PROCESSES_SCRIPT_PATH = path.resolve(__dirname, 'apps_and_processes.ps1');
