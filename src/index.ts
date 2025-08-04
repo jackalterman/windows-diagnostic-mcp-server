@@ -10,79 +10,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
-
-// Type definitions for the PowerShell script results
-interface EventInfo {
-  Type: string;
-  Time: string;
-  EventID: number;
-  Source: string;
-  Description: string;
-  Details: string;
-}
-
-interface ApplicationCrash {
-  Application: string;
-  CrashCount: number;
-  LatestCrash: string;
-}
-
-interface UpdateEvent {
-  Time: string;
-  EventID: number;
-  Source: string;
-  Description: string;
-}
-
-interface DriverIssue {
-  DriverService: string;
-  IssueCount: number;
-}
-
-interface HardwareError {
-  Time: string;
-  Source: string;
-  Details: string;
-}
-
-interface SystemInfo {
-  CurrentUptimeDays: number;
-  CurrentUptimeHours: number;
-  CurrentUptimeMinutes: number;
-  LastBootTime: string;
-  RebootCountInPeriod: number;
-  OSVersion: string;
-  TotalMemoryGB: number;
-}
-
-interface MemoryDump {
-  Type: string;
-  Path: string;
-  LastWrite: string;
-  SizeMB?: number;
-  SizeKB?: number;
-}
-
-interface Summary {
-  TotalEventsAnalyzed: number;
-  CriticalBSODCount: number;
-  UnexpectedShutdownCount: number;
-  TotalApplicationCrashes: number;
-  AnalysisPeriodDays: number;
-  GeneratedAt: string;
-}
-
-interface DiagnosticResults {
-  ShutdownEvents: EventInfo[];
-  BSODEvents: EventInfo[];
-  ApplicationCrashes: ApplicationCrash[];
-  UpdateEvents: UpdateEvent[];
-  DriverIssues: DriverIssue[];
-  HardwareErrors: HardwareError[];
-  SystemInfo: SystemInfo;
-  MemoryDumps: MemoryDump[];
-  Summary: Summary;
-}
+import * as AllTypes from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)) + '/powershell_scripts';
 const DIAGNOSTIC_SCRIPT_PATH = path.resolve(__dirname, 'diagnostic.ps1');
@@ -91,102 +19,6 @@ const APPS_AND_PROCESSES_SCRIPT_PATH = path.resolve(__dirname, 'apps_and_process
 const DIAGNOSTIC_SCRIPT = fs.readFileSync(DIAGNOSTIC_SCRIPT_PATH, 'utf-8');
 const REGISTRY_SCRIPT = fs.readFileSync(REGISTRY_SCRIPT_PATH, 'utf-8');
 const APPS_AND_PROCESSES_SCRIPT = fs.readFileSync(APPS_AND_PROCESSES_SCRIPT_PATH, 'utf-8');
-
-// Type definitions for the registry script results
-interface RegistrySearchResult {
-  Hive: string;
-  KeyPath: string;
-  ValueName: string;
-  ValueData: string;
-  MatchType: string;
-}
-
-interface StartupProgram {
-  Name: string;
-  Command: string;
-  Location: string;
-  User: string;
-  Verified: boolean;
-  Suspicious: boolean;
-}
-
-interface SystemComponent {
-  Type: string;
-  Name: string;
-  Issue: string;
-  Details: string;
-}
-
-interface OrphanedEntry {
-  Path: string;
-  Type: string;
-}
-
-interface RegistryHealth {
-  Score: number;
-  Rating: string;
-  IssuesFound: number;
-  Recommendations: string[];
-}
-
-interface SecurityFinding {
-  ID: string;
-  Severity: string;
-  Description: string;
-  Details: string;
-  Recommendation: string;
-}
-
-interface RegistryDiagnosticResults {
-  SearchResults?: RegistrySearchResult[];
-  StartupPrograms?: StartupProgram[];
-  SystemComponents?: SystemComponent[];
-  OrphanedEntries?: OrphanedEntry[];
-  RegistryHealth?: RegistryHealth;
-  SecurityFindings?: SecurityFinding[];
-  Summary: {
-    ScanType: string;
-    ItemsScanned: number;
-    IssuesFound: number;
-    GeneratedAt: string;
-  };
-}
-
-// Type definitions for the apps and processes script results
-interface RunningProcess {
-  Name: string;
-  PID: number;
-  CPU: number;
-  MemoryMB: number;
-  User: string;
-}
-
-interface KilledProcess {
-  PID?: number;
-  Name?: string;
-  Error?: string;
-}
-
-interface StartedProcess {
-  Name?: string;
-  PID?: number;
-  Path: string;
-  Error?: string;
-}
-
-interface InstalledApplication {
-  Name: string;
-  Version: string;
-  Publisher: string;
-  InstallDate: string;
-}
-
-interface AppsAndProcessesResults {
-  RunningProcesses?: RunningProcess[];
-  KilledProcesses?: KilledProcess[];
-  StartedProcess?: StartedProcess;
-  InstalledApplications?: InstalledApplication[];
-}
 
 
 class WindowsDiagnosticsServer {
@@ -535,13 +367,13 @@ class WindowsDiagnosticsServer {
       ...(detailed && { Detailed: true })
     };
 
-    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, params) as DiagnosticResults;
+    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, params) as AllTypes.DiagnosticResults;
 
     return {
       content: [
         {
           type: 'text',
-          text: `# Windows System Diagnostics Report\n\n## Summary\n- **Analysis Period**: ${result.Summary.AnalysisPeriodDays} days\n- **Total Events**: ${result.Summary.TotalEventsAnalyzed}\n- **Critical BSOD Events**: ${result.Summary.CriticalBSODCount}\n- **Unexpected Shutdowns**: ${result.Summary.UnexpectedShutdownCount}\n- **Application Crashes**: ${result.Summary.TotalApplicationCrashes}\n- **Generated**: ${result.Summary.GeneratedAt}\n\n## System Information\n- **OS**: ${result.SystemInfo.OSVersion}\n- **Last Boot**: ${result.SystemInfo.LastBootTime}\n- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes\n- **Total Memory**: ${result.SystemInfo.TotalMemoryGB} GB\n- **Reboots in Period**: ${result.SystemInfo.RebootCountInPeriod}\n\n## Critical Events\n${result.BSODEvents.length > 0 ? `### BSOD Events (⚠️ Critical)\n${result.BSODEvents.map((e: EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}` : '### BSOD Events\n- No BSOD events found ✅'}\n\n${result.ShutdownEvents.filter((e: EventInfo) => e.EventID === 6008).length > 0 ? `### Unexpected Shutdowns (⚠️ Warning)\n${result.ShutdownEvents.filter((e: EventInfo) => e.EventID === 6008).map((e: EventInfo) => `- **${e.Time}**: ${e.Description}`).join('\n')}` : '### Unexpected Shutdowns\n- No unexpected shutdowns found ✅'}\n\n## Application Crashes\n${result.ApplicationCrashes.length > 0 ? result.ApplicationCrashes.map((c: ApplicationCrash) => `- **${c.Application}**: ${c.CrashCount} crashes (Latest: ${c.LatestCrash})`).join('\n') : '- No application crashes found ✅'}\n\n## Hardware & Driver Issues\n${result.HardwareErrors.length > 0 ? `### Hardware Errors\n${result.HardwareErrors.map((e: HardwareError) => `- **${e.Time}**: ${e.Source}`).join('\n')}` : '### Hardware Errors\n- No hardware errors found ✅'}\n\n${result.DriverIssues.length > 0 ? `### Driver Issues\n${result.DriverIssues.map((d: DriverIssue) => `- **${d.DriverService}**: ${d.IssueCount} issues`).join('\n')}` : '### Driver Issues\n- No driver issues found ✅'}\n\n## Memory Dumps\n${result.MemoryDumps.length > 0 ? result.MemoryDumps.map((d: MemoryDump) => `- **${d.Type} Dump**: ${d.Path} (Last Modified: ${d.LastWrite}, Size: ${d.SizeMB || d.SizeKB} ${d.SizeMB ? 'MB' : 'KB'})`).join('\n') : '- No memory dumps found'}\n\n## Recent System Events\n${result.ShutdownEvents.slice(0, 5).map((e: EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}`,
+          text: `# Windows System Diagnostics Report\n\n## Summary\n- **Analysis Period**: ${result.Summary.AnalysisPeriodDays} days\n- **Total Events**: ${result.Summary.TotalEventsAnalyzed}\n- **Critical BSOD Events**: ${result.Summary.CriticalBSODCount}\n- **Unexpected Shutdowns**: ${result.Summary.UnexpectedShutdownCount}\n- **Application Crashes**: ${result.Summary.TotalApplicationCrashes}\n- **Generated**: ${result.Summary.GeneratedAt}\n\n## System Information\n- **OS**: ${result.SystemInfo.OSVersion}\n- **Last Boot**: ${result.SystemInfo.LastBootTime}\n- **Current Uptime**: ${result.SystemInfo.CurrentUptimeDays} days, ${result.SystemInfo.CurrentUptimeHours} hours, ${result.SystemInfo.CurrentUptimeMinutes} minutes\n- **Total Memory**: ${result.SystemInfo.TotalMemoryGB} GB\n- **Reboots in Period**: ${result.SystemInfo.RebootCountInPeriod}\n\n## Critical Events\n${result.BSODEvents.length > 0 ? `### BSOD Events (⚠️ Critical)\n${result.BSODEvents.map((e: AllTypes.EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}` : '### BSOD Events\n- No BSOD events found ✅'}\n\n${result.ShutdownEvents.filter((e: AllTypes.EventInfo) => e.EventID === 6008).length > 0 ? `### Unexpected Shutdowns (⚠️ Warning)\n${result.ShutdownEvents.filter((e: AllTypes.EventInfo) => e.EventID === 6008).map((e: AllTypes.EventInfo) => `- **${e.Time}**: ${e.Description}`).join('\n')}` : '### Unexpected Shutdowns\n- No unexpected shutdowns found ✅'}\n\n## Application Crashes\n${result.ApplicationCrashes.length > 0 ? result.ApplicationCrashes.map((c: AllTypes.ApplicationCrash) => `- **${c.Application}**: ${c.CrashCount} crashes (Latest: ${c.LatestCrash})`).join('\n') : '- No application crashes found ✅'}\n\n## Hardware & Driver Issues\n${result.HardwareErrors.length > 0 ? `### Hardware Errors\n${result.HardwareErrors.map((e: AllTypes.HardwareError) => `- **${e.Time}**: ${e.Source}`).join('\n')}` : '### Hardware Errors\n- No hardware errors found ✅'}\n\n${result.DriverIssues.length > 0 ? `### Driver Issues\n${result.DriverIssues.map((d: AllTypes.DriverIssue) => `- **${d.DriverService}**: ${d.IssueCount} issues`).join('\n')}` : '### Driver Issues\n- No driver issues found ✅'}\n\n## Memory Dumps\n${result.MemoryDumps.length > 0 ? result.MemoryDumps.map((d: AllTypes.MemoryDump) => `- **${d.Type} Dump**: ${d.Path} (Last Modified: ${d.LastWrite}, Size: ${d.SizeMB || d.SizeKB} ${d.SizeMB ? 'MB' : 'KB'})`).join('\n') : '- No memory dumps found'}\n\n## Recent System Events\n${result.ShutdownEvents.slice(0, 5).map((e: AllTypes.EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID})`).join('\n')}`,
         },
       ],
     };
@@ -549,15 +381,15 @@ class WindowsDiagnosticsServer {
 
   private async getShutdownEvents(args: { daysBack?: number }) {
     const daysBack = args?.daysBack || 7;
-    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as DiagnosticResults;
+    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as AllTypes.DiagnosticResults;
 
     return {
       content: [
         {
           type: 'text',
           text: `# Shutdown and Reboot Events (Last ${daysBack} days)\n\n${result.ShutdownEvents.length > 0 ? 
-  result.ShutdownEvents.map((e: EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})`).join('\n') 
-  : 'No shutdown/reboot events found in the specified period.'}\n\n**Total Events**: ${result.ShutdownEvents.length}\n**Unexpected Shutdowns**: ${result.ShutdownEvents.filter((e: EventInfo) => e.EventID === 6008).length}`,
+  result.ShutdownEvents.map((e: AllTypes.EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})`).join('\n') 
+  : 'No shutdown/reboot events found in the specified period.'}\n\n**Total Events**: ${result.ShutdownEvents.length}\n**Unexpected Shutdowns**: ${result.ShutdownEvents.filter((e: AllTypes.EventInfo) => e.EventID === 6008).length}`,
         },
       ],
     };
@@ -565,14 +397,14 @@ class WindowsDiagnosticsServer {
 
   private async getBSODEvents(args: { daysBack?: number }) {
     const daysBack = args?.daysBack || 7;
-    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as DiagnosticResults;
+    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as AllTypes.DiagnosticResults;
 
     return {
       content: [
         {
           type: 'text',
           text: `# Blue Screen of Death (BSOD) Events (Last ${daysBack} days)\n\n${result.BSODEvents.length > 0 ? 
-  `⚠️ **CRITICAL**: ${result.BSODEvents.length} BSOD event(s) found!\n\n` + result.BSODEvents.map((e: EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})\n  Details: ${e.Details.substring(0, 200)}...`).join('\n\n')
+  `⚠️ **CRITICAL**: ${result.BSODEvents.length} BSOD event(s) found!\n\n` + result.BSODEvents.map((e: AllTypes.EventInfo) => `- **${e.Time}**: ${e.Description} (Event ID: ${e.EventID}, Source: ${e.Source})\n  Details: ${e.Details.substring(0, 200)}...`).join('\n\n')
   : '✅ No BSOD events found in the specified period.'}`,
         },
       ],
@@ -580,7 +412,7 @@ class WindowsDiagnosticsServer {
   }
 
   private async getSystemUptime() {
-    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: 1, JsonOutput: true }) as DiagnosticResults;
+    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: 1, JsonOutput: true }) as AllTypes.DiagnosticResults;
 
     return {
       content: [
@@ -596,10 +428,10 @@ class WindowsDiagnosticsServer {
 
   private async analyzeSystemStability(args: { daysBack?: number }) {
     const daysBack = args?.daysBack || 30;
-    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as DiagnosticResults;
+    const result = await this.runPowerShellScript(DIAGNOSTIC_SCRIPT, { DaysBack: daysBack, JsonOutput: true }) as AllTypes.DiagnosticResults;
 
     const bsodCount = result.BSODEvents.length;
-    const unexpectedShutdowns = result.ShutdownEvents.filter((e: EventInfo) => e.EventID === 6008).length;
+    const unexpectedShutdowns = result.ShutdownEvents.filter((e: AllTypes.EventInfo) => e.EventID === 6008).length;
     const totalCrashes = result.Summary.TotalApplicationCrashes || 0;
     const hardwareErrors = result.HardwareErrors.length;
 
@@ -665,7 +497,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
       MaxResults: maxResults,
       JsonOutput: true,
     }
-  ) as RegistryDiagnosticResults;
+  ) as AllTypes.RegistryDiagnosticResults;
 
   const searchResultsText =
     result.SearchResults && result.SearchResults.length > 0
@@ -688,7 +520,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
 
 
   private async analyzeStartupPrograms() {
-    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanStartup: true, JsonOutput: true }) as RegistryDiagnosticResults;
+    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanStartup: true, JsonOutput: true }) as AllTypes.RegistryDiagnosticResults;
     return {
       content: [
         {
@@ -700,7 +532,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
   }
 
   private async scanSystemComponents() {
-    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanServices: true, ScanUninstall: true, ScanFileAssoc: true, ScanDrivers: true, JsonOutput: true }) as RegistryDiagnosticResults;
+    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { ScanServices: true, ScanUninstall: true, ScanFileAssoc: true, ScanDrivers: true, JsonOutput: true }) as AllTypes.RegistryDiagnosticResults;
     return {
       content: [
         {
@@ -712,7 +544,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
   }
 
   private async findOrphanedEntries() {
-    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { FindOrphaned: true, JsonOutput: true }) as RegistryDiagnosticResults;
+    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { FindOrphaned: true, JsonOutput: true }) as AllTypes.RegistryDiagnosticResults;
     return {
       content: [
         {
@@ -724,7 +556,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
   }
 
   private async getRegistryHealth() {
-    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { JsonOutput: true }) as RegistryDiagnosticResults;
+    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { JsonOutput: true }) as AllTypes.RegistryDiagnosticResults;
     return {
       content: [
         {
@@ -736,7 +568,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
   }
 
   private async scanSecurityRisks() {
-    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { SecurityScan: true, JsonOutput: true }) as RegistryDiagnosticResults;
+    const result = await this.runPowerShellScript(REGISTRY_SCRIPT, { SecurityScan: true, JsonOutput: true }) as AllTypes.RegistryDiagnosticResults;
     return {
       content: [
         {
@@ -754,7 +586,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
       MinMemoryMB: args.minMemoryMB,
       JsonOutput: true,
     };
-    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AllTypes.AppsAndProcessesResults;
     return {
       content: [
         {
@@ -771,7 +603,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
       KillName: args.name,
       JsonOutput: true,
     };
-    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AllTypes.AppsAndProcessesResults;
     return {
       content: [
         {
@@ -787,7 +619,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
       StartPath: args.path,
       JsonOutput: true,
     };
-    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AllTypes.AppsAndProcessesResults;
     return {
       content: [
         {
@@ -805,7 +637,7 @@ private async searchRegistry(args: { searchTerm?: string; maxResults?: number })
       Publisher: args.publisher,
       JsonOutput: true,
     };
-    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AppsAndProcessesResults;
+    const result = await this.runPowerShellScript(APPS_AND_PROCESSES_SCRIPT, params) as AllTypes.AppsAndProcessesResults;
     return {
       content: [
         {
