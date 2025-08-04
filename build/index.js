@@ -4,6 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import * as diagnostics from './tools/diagnostics.js';
 import * as registry from './tools/registry.js';
+import * as eventViewer from './tools/event_viewer_analyzer.js';
 import * as apps from './tools/apps_and_processes.js';
 class WindowsDiagnosticsServer {
     server;
@@ -224,6 +225,99 @@ class WindowsDiagnosticsServer {
                                 },
                             },
                         },
+                    },
+                    {
+                        name: 'event_viewer_analyzer',
+                        description: 'Analyze Windows Event Viewer logs with advanced filtering and analysis',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                logNames: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'Names of the event logs to search (e.g., Application, System)',
+                                },
+                                searchTerms: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'Keywords to search for in log messages',
+                                },
+                                eventIds: {
+                                    type: 'array',
+                                    items: { type: 'number' },
+                                    description: 'Specific event IDs to filter by',
+                                },
+                                sources: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'Event sources to filter by',
+                                },
+                                hours: {
+                                    type: 'number',
+                                    description: 'Number of hours back to search',
+                                },
+                                days: {
+                                    type: 'number',
+                                    description: 'Number of days back to search',
+                                },
+                                startTime: {
+                                    type: 'string',
+                                    description: 'Start time for the search (e.g., "YYYY-MM-DDTHH:mm:ss")',
+                                },
+                                endTime: {
+                                    type: 'string',
+                                    description: 'End time for the search (e.g., "YYYY-MM-DDTHH:mm:ss")',
+                                },
+                                errorsOnly: {
+                                    type: 'boolean',
+                                    description: 'Only show events with level Error',
+                                },
+                                warningsOnly: {
+                                    type: 'boolean',
+                                    description: 'Only show events with level Warning',
+                                },
+                                criticalOnly: {
+                                    type: 'boolean',
+                                    description: 'Only show events with level Critical',
+                                },
+                                securityAnalysis: {
+                                    type: 'boolean',
+                                    description: 'Perform a security-focused analysis of events',
+                                },
+                                detailed: {
+                                    type: 'boolean',
+                                    description: 'Include detailed event information',
+                                },
+                                exportJson: {
+                                    type: 'boolean',
+                                    description: 'Export results to a JSON file',
+                                },
+                                exportCsv: {
+                                    type: 'boolean',
+                                    description: 'Export results to a CSV file',
+                                },
+                                outputPath: {
+                                    type: 'string',
+                                    description: 'Path to save the exported file',
+                                },
+                                maxEvents: {
+                                    type: 'number',
+                                    description: 'Maximum number of events to return',
+                                },
+                                showStats: {
+                                    type: 'boolean',
+                                    description: 'Show statistics about the events found',
+                                },
+                                groupBySource: {
+                                    type: 'boolean',
+                                    description: 'Group events by their source',
+                                },
+                                timelineView: {
+                                    type: 'boolean',
+                                    description: 'Display events in a timeline view',
+                                },
+                            },
+                        },
                     }
                 ],
             };
@@ -262,6 +356,8 @@ class WindowsDiagnosticsServer {
                         return await apps.startProcess(args);
                     case 'list_installed_apps':
                         return await apps.listInstalledApps(args);
+                    case 'event_viewer_analyzer':
+                        return await eventViewer.eventViewerAnalyzer(args);
                     default:
                         throw new Error(`Unknown tool: ${name}`);
                 }

@@ -19,7 +19,8 @@
   "author": "Windows Diagnostics MCP",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.1"
+    "@modelcontextprotocol/sdk": "^1.17.1",
+    "node-powershell": "^5.0.1"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
