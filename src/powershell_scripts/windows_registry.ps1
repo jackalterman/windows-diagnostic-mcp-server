@@ -117,11 +117,11 @@ $Results = @{
     Summary = @{}
 }
 
-Write-Host "Starting Windows Registry Diagnostics..." -ForegroundColor Green
+if (-not $JsonOutput) { Write-Host "Starting Windows Registry Diagnostics..." -ForegroundColor Green }
 
 # 1. Registry Search
 if ($SearchTerm) {
-    Write-Host "Searching for: $SearchTerm" -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Searching for: $SearchTerm" -ForegroundColor Yellow }
     
     $SearchPaths = @(
         "HKLM:\SOFTWARE",
@@ -140,7 +140,7 @@ if ($SearchTerm) {
 
 # 2. Startup Programs Analysis
 if ($ScanStartup -or !$SearchTerm) {
-    Write-Host "Analyzing startup programs..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Analyzing startup programs..." -ForegroundColor Yellow }
     
     $StartupPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
@@ -173,7 +173,7 @@ if ($ScanStartup -or !$SearchTerm) {
 
 # 3. Service Issues
 if ($ScanServices -or !$SearchTerm) {
-    Write-Host "Scanning for service issues..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Scanning for service issues..." -ForegroundColor Yellow }
     
     $ServicesPath = "HKLM:\SYSTEM\CurrentControlSet\Services"
     $Services = Get-SafeRegistryKeys -Path $ServicesPath
@@ -199,7 +199,7 @@ if ($ScanServices -or !$SearchTerm) {
 
 # 4. Uninstall Entries
 if ($ScanUninstall -or !$SearchTerm) {
-    Write-Host "Checking uninstall entries..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Checking uninstall entries..." -ForegroundColor Yellow }
     
     $UninstallPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
@@ -233,7 +233,7 @@ if ($ScanUninstall -or !$SearchTerm) {
 
 # 5. File Association Issues
 if ($ScanFileAssoc -or !$SearchTerm) {
-    Write-Host "Scanning file associations..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Scanning file associations..." -ForegroundColor Yellow }
     
     $FileTypes = Get-SafeRegistryKeys -Path "HKCR:\"
     $SampleExtensions = $FileTypes | Where-Object { $_.PSChildName -match "^\." } | Select-Object -First 20
@@ -264,7 +264,7 @@ if ($ScanFileAssoc -or !$SearchTerm) {
 
 # 6. Driver Issues
 if ($ScanDrivers -or !$SearchTerm) {
-    Write-Host "Checking driver entries..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Checking driver entries..." -ForegroundColor Yellow }
     
     $DriverPath = "HKLM:\SYSTEM\CurrentControlSet\Services"
     $Drivers = Get-SafeRegistryKeys -Path $DriverPath | Where-Object {
@@ -289,7 +289,7 @@ if ($ScanDrivers -or !$SearchTerm) {
 
 # 7. Find Orphaned Entries
 if ($FindOrphaned -or !$SearchTerm) {
-    Write-Host "Finding orphaned entries..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Finding orphaned entries..." -ForegroundColor Yellow }
     
     # Check for entries pointing to non-existent paths
     $CommonPaths = @(
@@ -320,7 +320,7 @@ if ($FindOrphaned -or !$SearchTerm) {
 
 # 8. Security Issues
 if ($SecurityScan -or !$SearchTerm) {
-    Write-Host "Performing security scan..." -ForegroundColor Yellow
+    if (-not $JsonOutput) { Write-Host "Performing security scan..." -ForegroundColor Yellow }
     
     # Check for suspicious startup entries
     $SuspiciousLocations = @("temp", "appdata\local\temp", "users\public", "\programdata")
@@ -357,7 +357,7 @@ if ($SecurityScan -or !$SearchTerm) {
 }
 
 # 9. Identify Bad/Corrupted Entries
-Write-Host "Identifying bad registry entries..." -ForegroundColor Yellow
+if (-not $JsonOutput) { Write-Host "Identifying bad registry entries..." -ForegroundColor Yellow }
 
 # Combine all issues found
 $AllIssues = @()
@@ -420,11 +420,11 @@ $Results.Summary = @{
         DetailedScan = $Detailed
         HivesScanned = $HivesToScan -join ", "
     }
-    GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+n    GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 }
 
-Write-Host "Registry diagnostics complete!" -ForegroundColor Green
-Write-Host "Found $($Results.BadEntries.Count) potential issues" -ForegroundColor $(if($Results.BadEntries.Count -gt 0) {"Red"} else {"Green"})
+if (-not $JsonOutput) { Write-Host "Registry diagnostics complete!" -ForegroundColor Green }
+if (-not $JsonOutput) { Write-Host "Found $($Results.BadEntries.Count) potential issues" -ForegroundColor $(if($Results.BadEntries.Count -gt 0) {"Red"} else {"Green"}) }
 
 # Output results
 if ($JsonOutput) {
