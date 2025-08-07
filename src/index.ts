@@ -9,7 +9,10 @@ import {
 import * as diagnostics from './tools/diagnostics.js';
 import * as registry from './tools/registry.js';
 import * as eventViewer from './tools/event_viewer_analyzer.js';
+import * as eventViewerSearch from './tools/event_viewer_search.js';
 import * as apps from './tools/apps_and_processes.js';
+import * as hardware from './tools/hardware_monitor.js';
+import type { HardwareMonitorParams } from './tools/hardware_monitor.js';
 
 class WindowsDiagnosticsServer {
   private server: Server;
@@ -239,6 +242,35 @@ class WindowsDiagnosticsServer {
             },
           },
           {
+            name: 'hardware_monitor',
+            description: 'Monitors hardware health including temperatures, fan speeds, drive SMART status, and memory health.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                checkTemperatures: {
+                  type: 'boolean',
+                  description: 'Check CPU and GPU temperatures',
+                  default: true,
+                },
+                checkFanSpeeds: {
+                  type: 'boolean',
+                  description: 'Check system fan speeds',
+                  default: true,
+                },
+                checkSmartStatus: {
+                  type: 'boolean',
+                  description: 'Check storage drive SMART status',
+                  default: true,
+                },
+                checkMemoryHealth: {
+                  type: 'boolean',
+                  description: 'Check memory health',
+                  default: true,
+                },
+              },
+            },
+          },
+          {
             name: 'event_viewer_analyzer',
             description: 'Analyze Windows Event Viewer logs with advanced filtering and analysis',
             inputSchema: {
@@ -330,6 +362,98 @@ class WindowsDiagnosticsServer {
                 },
               },
             },
+          },
+          {
+            name: 'event_viewer_search',
+            description: 'Comprehensive Windows Event Viewer search tool that enumerates all available logs and searches across them for keywords, event IDs, or other criteria. This tool can discover and search all Windows event logs, not just the main four.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                searchKeyword: {
+                  type: 'string',
+                  description: 'Keyword to search for in event messages',
+                },
+                eventIds: {
+                  type: 'array',
+                  items: { type: 'number' },
+                  description: 'Specific event IDs to filter by',
+                },
+                sources: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Event sources/providers to filter by',
+                },
+                logNames: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Specific log names to search (if empty, searches all available logs)',
+                },
+                hours: {
+                  type: 'number',
+                  description: 'Number of hours back to search (default: 24)',
+                },
+                days: {
+                  type: 'number',
+                  description: 'Number of days back to search (overrides hours if specified)',
+                },
+                startTime: {
+                  type: 'string',
+                  description: 'Start time for the search (format: "YYYY-MM-DDTHH:mm:ss")',
+                },
+                endTime: {
+                  type: 'string',
+                  description: 'End time for the search (format: "YYYY-MM-DDTHH:mm:ss")',
+                },
+                maxEventsPerLog: {
+                  type: 'number',
+                  description: 'Maximum number of events to return per log (default: 100)',
+                },
+                includeDisabledLogs: {
+                  type: 'boolean',
+                  description: 'Include disabled logs in the search',
+                },
+                errorsOnly: {
+                  type: 'boolean',
+                  description: 'Only show events with level Error',
+                },
+                warningsOnly: {
+                  type: 'boolean',
+                  description: 'Only show events with level Warning',
+                },
+                criticalOnly: {
+                  type: 'boolean',
+                  description: 'Only show events with level Critical',
+                },
+                informationOnly: {
+                  type: 'boolean',
+                  description: 'Only show events with level Information',
+                },
+                verbose: {
+                  type: 'boolean',
+                  description: 'Enable verbose output during search',
+                },
+                showLogDiscovery: {
+                  type: 'boolean',
+                  description: 'Include detailed log discovery information in results',
+                },
+                skipSecurityLog: {
+                  type: 'boolean',
+                  description: 'Skip the Security log (useful if access is denied)',
+                },
+                includeSystemLogs: {
+                  type: 'boolean',
+                  description: 'Include only system logs (System, Security, Application, Setup)',
+                },
+                includeApplicationLogs: {
+                  type: 'boolean',
+                  description: 'Include only application-related logs',
+                },
+                includeCustomLogs: {
+                  type: 'boolean',
+                  description: 'Include only custom/third-party logs',
+                },
+              },
+            },
           }
         ],
       };
@@ -370,8 +494,12 @@ class WindowsDiagnosticsServer {
             return await apps.startProcess(args as { path: string });
           case 'list_installed_apps':
             return await apps.listInstalledApps(args as { appName?: string; publisher?: string });
+          case 'hardware_monitor':
+            return await hardware.hardwareMonitor.execute(args as HardwareMonitorParams);
           case 'event_viewer_analyzer':
             return await eventViewer.eventViewerAnalyzer(args as eventViewer.EventViewerAnalyzerTool);
+          case 'event_viewer_search':
+            return await eventViewerSearch.eventViewerSearch.execute(args as eventViewerSearch.EventViewerSearchParams);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }

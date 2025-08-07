@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 
 export async function runPowerShellScript(
   script: string,
-  params: { [key: string]: string | number | boolean | undefined } = {}
+  params: { [key: string]: string | number | boolean | string[] | undefined } = {}
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"];
@@ -17,6 +17,9 @@ export async function runPowerShellScript(
           paramStrings.push(`-${key}`); // Just the switch name if true
         }
         // Don't add anything if false
+      } else if (Array.isArray(value)) {
+        const escapedValues = value.map((v) => String(v).replace(/'/g, "''")).join(",");
+        paramStrings.push(`-${key} '${escapedValues}'`);
       } else {
         const escapedValue = String(value).replace(/'/g, "''");
         paramStrings.push(`-${key} '${escapedValue}'`);

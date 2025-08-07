@@ -1,3 +1,4 @@
+import { z } from 'zod';
 
 // Type definitions for the PowerShell script results
 export interface EventInfo {
@@ -74,11 +75,12 @@ export interface DiagnosticResults {
 
 // Type definitions for the registry script results
 export interface RegistrySearchResult {
-  Hive: string;
-  KeyPath: string;
-  ValueName: string;
-  ValueData: string;
-  MatchType: string;
+  Type: string;        // matches PowerShell "Type"
+  Path: string;        // matches PowerShell "Path" 
+  ValueName: string;   // matches
+  ValueData: string;   // matches
+  Match: string;       // matches PowerShell "Match"
+  Found: string;       // matches PowerShell "Found"
 }
 
 export interface StartupProgram {
@@ -166,4 +168,222 @@ export interface AppsAndProcessesResults {
   KilledProcesses?: KilledProcess[];
   StartedProcess?: StartedProcess;
   InstalledApplications?: InstalledApplication[];
+}
+
+// Type definitions for the hardware monitor script results
+export const hardwareMonitorParamsSchema = z.object({
+  checkTemperatures: z.boolean().default(true),
+  checkFanSpeeds: z.boolean().default(true),
+  checkSmartStatus: z.boolean().default(true),
+  checkMemoryHealth: z.boolean().default(true),
+});
+
+export type HardwareMonitorParams = z.infer<typeof hardwareMonitorParamsSchema>;
+
+export interface TemperatureReading {
+  Sensor: string;
+  TemperatureC: number;
+}
+
+export interface FanSpeedReading {
+  Fan: string;
+  SpeedRPM: number;
+}
+
+export interface SmartStatus {
+  Disk: string;
+  Status: string;
+  Attributes: Record<string, unknown>;
+}
+
+export interface MemoryHealth {
+  Status: string;
+  Errors: any[];
+}
+
+export interface HardwareMonitorOutput {
+  Temperatures: TemperatureReading[];
+  FanSpeeds: FanSpeedReading[];
+  SMARTStatus: SmartStatus[];
+  MemoryHealth: MemoryHealth;
+  Errors: string[];
+}
+
+export interface Tool {
+    name: string;
+    description: string;
+    schema: z.ZodObject<any>;
+    execute: (params: any) => Promise<any>;
+  }
+
+// Type definitions for the network diagnostic script results
+export const networkDiagnosticParamsSchema = z.object({
+    detailed: z.boolean().optional().default(false),
+    testHosts: z.array(z.string()).optional().default(["8.8.8.8", "1.1.1.1", "google.com"]),
+    bandwidthTestSize: z.number().int().positive().optional().default(10),
+    portScanTargets: z.array(z.string()).optional().default(["localhost"]),
+});
+
+export type NetworkDiagnosticParams = z.infer<typeof networkDiagnosticParamsSchema>;
+
+export interface NetworkAdapterInfo {
+    Name: string;
+    InterfaceDescription: string;
+    LinkSpeed: number;
+    MacAddress: string;
+    Status: string;
+    Type: string;
+    IPv4Address: string | null;
+    IPv6Address: string | null;
+    DefaultGateway: string | null;
+    DNSServers: string[];
+    SignalStrength: string | null;
+    SSID: string | null;
+}
+
+export interface ActiveConnection {
+    LocalAddress: string;
+    LocalPort: number;
+    RemoteAddress: string;
+    RemotePort: number;
+    State: string;
+    ProcessName: string;
+    ProcessId: number;
+}
+
+export interface WiFiNetwork {
+    SSID: string;
+    Authentication: string;
+    Encryption: string;
+    Saved: boolean;
+}
+
+export interface DnsResult {
+    Hostname: string;
+    ResolvedIP: string | null;
+    ResponseTime: number | null;
+    Status: "Success" | "Failed";
+    RecordType?: string;
+    Error?: string;
+}
+
+export interface PingTest {
+    Target: string;
+    AverageMs: number | null;
+    MinimumMs: number | null;
+    MaximumMs: number | null;
+    PacketLoss?: number;
+    Status: "Success" | "Failed";
+    Error?: string;
+}
+
+export interface BandwidthTest {
+    PingTests: PingTest[];
+    DownloadSpeedMbps?: number;
+    TestFileSize?: string;
+}
+
+export interface PortScanResult {
+    OpenPorts: number[];
+    ScannedPorts: number[];
+    Timestamp: string;
+}
+
+export interface FirewallProfile {
+    Name: string;
+    Enabled: boolean;
+    DefaultInboundAction: string;
+    DefaultOutboundAction: string;
+}
+
+export interface NetworkDiagnosticOutput {
+    Timestamp: string;
+    ComputerName: string;
+    NetworkAdapters: NetworkAdapterInfo[];
+    ActiveConnections: ActiveConnection[];
+    WiFiNetworks: WiFiNetwork[];
+    DNSResults: DnsResult[];
+    BandwidthTest: BandwidthTest;
+    PortScan: Record<string, PortScanResult>;
+    FirewallStatus: Record<string, FirewallProfile>;
+    Errors: string[];
+}
+
+// Type definitions for the comprehensive event viewer search tool
+export interface EventViewerSearchEvent {
+  TimeCreated: string;
+  LogName: string;
+  Level: number;
+  LevelDisplayName: string;
+  Id: number;
+  ProviderName: string;
+  TaskDisplayName: string;
+  Message: string;
+  UserId: string;
+  ProcessId: number;
+  ThreadId: number;
+  MachineName: string;
+  RecordId: number;
+}
+
+export interface LogDiscoveryInfo {
+  TotalLogsFound: number;
+  EnabledLogs: number;
+  DisabledLogs: number;
+  AccessibleLogs: number;
+  InaccessibleLogs: number;
+  LogsSearched: Array<{
+    LogName: string;
+    EventsFound: number;
+    SearchTime: number;
+  }>;
+  LogsSkipped: Array<{
+    LogName: string;
+    Reason: string;
+    Error?: string;
+  }>;
+  AllLogs?: Array<{
+    LogName: string;
+    IsEnabled: boolean;
+    RecordCount: number;
+    FileSize: number;
+    LastWriteTime: string;
+  }>;
+}
+
+export interface SearchResults {
+  TotalEventsFound: number;
+  EventsByLog: Record<string, number>;
+  EventsByLevel: Record<string, number>;
+  EventsBySource: Record<string, number>;
+  TopEventIDs: Array<{
+    EventID: number;
+    Count: number;
+  }>;
+}
+
+export interface EventViewerSearchOutput {
+  Timestamp: string;
+  ComputerName: string;
+  SearchCriteria: {
+    Keyword: string;
+    EventIDs: number[];
+    Sources: string[];
+    TimeRange: {
+      StartTime: string;
+      EndTime: string;
+      Duration: string;
+    };
+    MaxEventsPerLog: number;
+  };
+  LogDiscovery: LogDiscoveryInfo;
+  SearchResults: SearchResults;
+  Events: EventViewerSearchEvent[];
+  Errors: string[];
+  Warnings: string[];
+  Performance: {
+    SearchDuration: number;
+    LogsProcessed: number;
+    AverageTimePerLog: number;
+  };
 }

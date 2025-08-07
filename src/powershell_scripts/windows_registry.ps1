@@ -393,12 +393,37 @@ foreach ($TestPath in $TestPaths) {
     }
 }
 
+$HealthScore = if ($TotalKeys -gt 0) { [math]::Round(($AccessibleKeys / $TotalKeys) * 100, 2) } else { 0 }
+$Rating = "Unknown"
+if ($HealthScore -ge 95) {
+    $Rating = "Excellent"
+} elseif ($HealthScore -ge 85) {
+    $Rating = "Good"
+} elseif ($HealthScore -ge 70) {
+    $Rating = "Fair"
+} else {
+    $Rating = "Poor"
+}
+
+$Recommendations = @()
+if ($Results.BadEntries.Count -gt 0) {
+    $Recommendations += "Review and address the $($Results.BadEntries.Count) identified bad/orphaned entries."
+}
+if ($Results.SecurityIssues.Count -gt 0) {
+    $Recommendations += "Review and mitigate the $($Results.SecurityIssues.Count) potential security risks."
+}
+if ($HealthScore -lt 85) {
+    $Recommendations += "Consider using a dedicated registry cleaning tool for a deeper analysis."
+}
+if ($Recommendations.Count -eq 0) {
+    $Recommendations += "No immediate recommendations. The registry appears to be in good health."
+}
+
 $Results.RegistryHealth = @{
-    EstimatedTotalKeys = $TotalKeys
-    AccessibleKeys = $AccessibleKeys
-    HealthScore = if ($TotalKeys -gt 0) { [math]::Round(($AccessibleKeys / $TotalKeys) * 100, 2) } else { 0 }
-    LastScanTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    Score = $HealthScore
+    Rating = $Rating
     IssuesFound = $Results.BadEntries.Count
+    Recommendations = $Recommendations
 }
 
 # Summary
@@ -420,7 +445,7 @@ $Results.Summary = @{
         DetailedScan = $Detailed
         HivesScanned = $HivesToScan -join ", "
     }
-n    GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 }
 
 if (-not $JsonOutput) { Write-Host "Registry diagnostics complete!" -ForegroundColor Green }

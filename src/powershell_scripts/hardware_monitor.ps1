@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+
 <#
 .SYNOPSIS
     Comprehensive Hardware Monitoring Script for Windows Systems
@@ -10,9 +10,12 @@
 #>
 
 param(
-    [switch]$Detailed,
     [switch]$ExportJson,
-    [string]$OutputPath = ".\hardware-report.json"
+    [string]$OutputPath = ".\hardware-report.json",
+    [bool]$checkTemperatures = $true,
+    [bool]$checkFanSpeeds = $true,
+    [bool]$checkSmartStatus = $true,
+    [bool]$checkMemoryHealth = $true
 )
 
 # Initialize results object
@@ -26,12 +29,8 @@ $Results = @{
     Errors = @()
 }
 
-Write-Host "🔧 Hardware Monitoring Report - $($Results.Timestamp)" -ForegroundColor Cyan
-Write-Host "=" * 60
-
 #region Temperature Monitoring
-Write-Host "`n🌡️  Temperature Sensors" -ForegroundColor Yellow
-
+if ($checkTemperatures) {
 try {
     # CPU Temperature (WMI - may not work on all systems)
     $cpuTemp = Get-WmiObject -Namespace "root\wmi" -Class "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue
@@ -75,29 +74,17 @@ try {
         }
     }
 
-    # Display temperature results
-    if ($Results.Temperatures.Count -gt 0) {
-        foreach ($sensor in $Results.Temperatures.GetEnumerator()) {
-            $status = switch ($sensor.Value.Status) {
-                "Critical" { "🔴" }
-                "Warning" { "🟡" }
-                default { "🟢" }
-            }
-            Write-Host "  $status $($sensor.Key): $($sensor.Value.Celsius)°C ($($sensor.Value.Fahrenheit)°F) - $($sensor.Value.Status)"
-        }
-    } else {
-        Write-Host "  ⚠️  No temperature sensors detected via WMI" -ForegroundColor Yellow
+    if ($Results.Temperatures.Count -eq 0) {
         $Results.Errors += "Temperature sensors not accessible via standard WMI queries"
     }
 } catch {
-    Write-Host "  ❌ Error reading temperature sensors: $($_.Exception.Message)" -ForegroundColor Red
     $Results.Errors += "Temperature monitoring error: $($_.Exception.Message)"
+}
 }
 #endregion
 
 #region Fan Speed Monitoring
-Write-Host "`n🌪️  Fan Speeds" -ForegroundColor Yellow
-
+if ($checkFanSpeeds) {
 try {
     # Fan speeds via WMI
     $fans = Get-WmiObject -Namespace "root\cimv2" -Class "Win32_Fan" -ErrorAction SilentlyContinue
@@ -126,25 +113,17 @@ try {
         }
     }
 
-    # Display fan results
-    if ($Results.FanSpeeds.Count -gt 0) {
-        foreach ($fan in $Results.FanSpeeds.GetEnumerator()) {
-            $statusIcon = if ($fan.Value.RPM -gt 0) { "🟢" } else { "🔴" }
-            Write-Host "  $statusIcon $($fan.Value.Name): $($fan.Value.RPM) RPM - $($fan.Value.Status)"
-        }
-    } else {
-        Write-Host "  ⚠️  No fan sensors detected" -ForegroundColor Yellow
+    if ($Results.FanSpeeds.Count -eq 0) {
         $Results.Errors += "Fan sensors not accessible"
     }
 } catch {
-    Write-Host "  ❌ Error reading fan speeds: $($_.Exception.Message)" -ForegroundColor Red
     $Results.Errors += "Fan monitoring error: $($_.Exception.Message)"
+}
 }
 #endregion
 
 #region SMART Drive Data
-Write-Host "`n💾 Drive Health (SMART Data)" -ForegroundColor Yellow
-
+if ($checkSmartStatus) {
 try {
     $drives = Get-WmiObject -Class "Win32_DiskDrive"
     
@@ -192,29 +171,15 @@ try {
         }
 
         $Results.DriveHealth["Drive_$($drive.Index)"] = $driveInfo
-
-        # Display drive info
-        $healthIcon = switch ($driveInfo.Health) {
-            "Failing" { "🔴" }
-            "Good" { "🟢" }
-            default { "🟡" }
-        }
-        
-        Write-Host "  $healthIcon Drive $($drive.Index): $($driveInfo.Model)"
-        Write-Host "    Size: $($driveInfo.Size) GB | Interface: $($driveInfo.Interface) | Health: $($driveInfo.Health)"
-        if ($driveInfo.DiskTime) {
-            Write-Host "    Disk Usage: $($driveInfo.DiskTime)%"
-        }
     }
 } catch {
-    Write-Host "  ❌ Error reading drive health: $($_.Exception.Message)" -ForegroundColor Red
     $Results.Errors += "Drive health monitoring error: $($_.Exception.Message)"
+}
 }
 #endregion
 
 #region Memory Health
-Write-Host "`n🧠 Memory Health" -ForegroundColor Yellow
-
+if ($checkMemoryHealth) {
 try {
     # Physical memory information
     $memory = Get-WmiObject -Class "Win32_PhysicalMemory"
@@ -244,9 +209,6 @@ try {
             Status = $module.Status
         }
         $Results.MemoryHealth.Modules += $moduleInfo
-        
-        Write-Host "  🟢 $($moduleInfo.Location): $($moduleInfo.Capacity)GB @ $($moduleInfo.Speed)MHz"
-        Write-Host "    Manufacturer: $($moduleInfo.Manufacturer) | Part: $($moduleInfo.PartNumber)"
     }
 
     # Memory errors from event log
@@ -261,47 +223,85 @@ try {
                 Message = $_.Message
             }
         }
-        Write-Host "  ⚠️  $($memoryErrors.Count) memory-related errors found in the last 7 days" -ForegroundColor Yellow
     }
 
     # Current memory usage
     $availableMemory = Get-Counter "\Memory\Available MBytes"
-    $usedMemoryPercent = [math]::Round((($totalMemory * 1024 - $availableMemory.CounterSamples[0].CookedValue) / ($totalMemory * 1024)) * 100, 1)
-    
-    Write-Host "  📊 Memory Usage: $usedMemoryPercent% ($([math]::Round($totalMemory - ($availableMemory.CounterSamples[0].CookedValue/1024), 1))GB used of $([math]::Round($totalMemory, 1))GB)"
+    $Results.MemoryHealth.Usage = @{
+        UsedPercentage = [math]::Round((($totalMemory * 1024 - $availableMemory.CounterSamples[0].CookedValue) / ($totalMemory * 1024)) * 100, 1)
+        UsedGB = [math]::Round($totalMemory - ($availableMemory.CounterSamples[0].CookedValue/1024), 1)
+        TotalGB = [math]::Round($totalMemory, 1)
+    }
 
 } catch {
-    Write-Host "  ❌ Error reading memory information: $($_.Exception.Message)" -ForegroundColor Red
     $Results.Errors += "Memory monitoring error: $($_.Exception.Message)"
+}
 }
 #endregion
 
-#region Summary and Export
-Write-Host "`n📋 Summary" -ForegroundColor Green
-Write-Host "  Sensors Detected:"
-Write-Host "    🌡️  Temperature sensors: $($Results.Temperatures.Count)"
-Write-Host "    🌪️  Fan sensors: $($Results.FanSpeeds.Count)"
-Write-Host "    💾 Drives monitored: $($Results.DriveHealth.Count)"
-Write-Host "    🧠 Memory modules: $($Results.MemoryHealth.Modules.Count)"
-
-if ($Results.Errors.Count -gt 0) {
-    Write-Host "`n⚠️  Errors encountered: $($Results.Errors.Count)" -ForegroundColor Yellow
-    if ($Detailed) {
-        foreach ($error in $Results.Errors) {
-            Write-Host "    • $error" -ForegroundColor Yellow
-        }
-    }
-}
-
+#region Final Output
 # Export to JSON if requested
 if ($ExportJson) {
     try {
         $Results | ConvertTo-Json -Depth 10 | Out-File -FilePath $OutputPath -Encoding UTF8
-        Write-Host "`n📄 Report exported to: $OutputPath" -ForegroundColor Green
+        $Results['ExportPath'] = $OutputPath
     } catch {
-        Write-Host "`n❌ Failed to export report: $($_.Exception.Message)" -ForegroundColor Red
+        $Results.Errors += "Failed to export report: $($_.Exception.Message)"
     }
 }
 
-Write-Host "`n✅ Hardware monitoring complete!" -ForegroundColor Green
+# Always return the results object as JSON to stdout for the Node.js server
+try {
+    # Convert to the format expected by TypeScript
+    $Output = @{
+        Temperatures = @()
+        FanSpeeds = @()
+        SMARTStatus = @()
+        MemoryHealth = @{
+            Status = "Unknown"
+            Errors = @()
+        }
+        Errors = $Results.Errors
+    }
+    
+    # Convert temperatures from object to array
+    foreach ($key in $Results.Temperatures.Keys) {
+        $temp = $Results.Temperatures[$key]
+        $Output.Temperatures += @{
+            Sensor = $key
+            TemperatureC = $temp.Celsius
+        }
+    }
+    
+    # Convert fan speeds from object to array
+    foreach ($key in $Results.FanSpeeds.Keys) {
+        $fan = $Results.FanSpeeds[$key]
+        $Output.FanSpeeds += @{
+            Fan = $key
+            SpeedRPM = $fan.RPM
+        }
+    }
+    
+    # Convert drive health to SMART status format
+    foreach ($key in $Results.DriveHealth.Keys) {
+        $drive = $Results.DriveHealth[$key]
+        $Output.SMARTStatus += @{
+            Disk = $drive.Model
+            Status = $drive.Health
+            Attributes = @{
+                Size = $drive.Size
+                Interface = $drive.Interface
+            }
+        }
+    }
+    
+    # Set memory health status
+    if ($Results.MemoryHealth.Usage) {
+        $Output.MemoryHealth.Status = if ($Results.MemoryHealth.Usage.UsedPercentage -gt 90) { "Critical" } elseif ($Results.MemoryHealth.Usage.UsedPercentage -gt 80) { "Warning" } else { "Normal" }
+    }
+    
+    $Output | ConvertTo-Json -Depth 10
+} catch {
+    @{ Error = "Failed to convert results to JSON: $($_.Exception.Message)" } | ConvertTo-Json
+}
 #endregion

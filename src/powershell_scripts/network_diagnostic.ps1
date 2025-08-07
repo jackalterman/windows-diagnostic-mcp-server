@@ -204,15 +204,15 @@ try {
 #region DNS Resolution Testing
 Write-Host "`n🔍 DNS Resolution Testing" -ForegroundColor Yellow
 
-foreach ($host in $TestHosts) {
+foreach ($hostname in $TestHosts) {
     try {
         $dnsStart = Get-Date
-        $dnsResult = Resolve-DnsName -Name $host -ErrorAction Stop
+        $dnsResult = Resolve-DnsName -Name $hostname -ErrorAction Stop
         $dnsEnd = Get-Date
         $dnsTime = ($dnsEnd - $dnsStart).TotalMilliseconds
 
         $dnsInfo = @{
-            Hostname = $host
+            Hostname = $hostname
             ResolvedIP = $dnsResult | Where-Object { $_.Type -eq "A" } | Select-Object -First 1 -ExpandProperty IPAddress
             ResponseTime = [math]::Round($dnsTime, 2)
             Status = "Success"
@@ -220,18 +220,18 @@ foreach ($host in $TestHosts) {
         }
 
         $Results.DNSResults += $dnsInfo
-        Write-Host "  🟢 $host → $($dnsInfo.ResolvedIP) ($($dnsInfo.ResponseTime)ms)"
+        Write-Host "  🟢 $hostname → $($dnsInfo.ResolvedIP) ($($dnsInfo.ResponseTime)ms)"
 
     } catch {
         $dnsInfo = @{
-            Hostname = $host
+            Hostname = $hostname
             ResolvedIP = $null
             ResponseTime = $null
             Status = "Failed"
             Error = $_.Exception.Message
         }
         $Results.DNSResults += $dnsInfo
-        Write-Host "  🔴 $host → Failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  🔴 $hostname → Failed: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -627,8 +627,8 @@ if ($recommendations.Count -gt 0) {
 if ($Results.Errors.Count -gt 0) {
     Write-Host "`n⚠️  Errors encountered: $($Results.Errors.Count)" -ForegroundColor Yellow
     if ($Detailed) {
-        foreach ($error in $Results.Errors) {
-            Write-Host "    • $error" -ForegroundColor Yellow
+        foreach ($error_message in $Results.Errors) {
+            Write-Host "    • $error_message" -ForegroundColor Yellow
         }
     }
 }
