@@ -1,11 +1,21 @@
 import { spawn } from "child_process";
+import path from "path";
 
+/**
+ * Run a PowerShell script with parameters
+ * @param script - The script content or file path to execute
+ * @param params - Parameters to pass to the script
+ * @param options - Execution options
+ * @param options.useScriptFile - If true, treats script as a file path and uses -File parameter. 
+ *                                If false/undefined, treats script as content and uses -Command (default behavior)
+ */
 export async function runPowerShellScript(
   script: string,
-  params: { [key: string]: string | number | boolean | string[] | undefined } = {}
+  params: { [key: string]: string | number | boolean | string[] | undefined } = {},
+  options: { useScriptFile?: boolean } = { useScriptFile: false }
 ): Promise<any> {
   return new Promise((resolve, reject) => {
-    const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"];
+    const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass"];
 
     // Build parameter string for PowerShell script invocation
     const paramStrings: string[] = [];
@@ -26,9 +36,16 @@ export async function runPowerShellScript(
       }
     });
 
-    // Use & operator to execute the script block with parameters
-    const fullCommand = `& { ${script} } ${paramStrings.join(" ")}`;
-    psArgs.push(fullCommand);
+    // Handle both script file and script content execution
+    if (options.useScriptFile) {
+      // For script files, use -File parameter with path relative to build folder
+      const scriptPath = script.replace(/^src\//, "");
+      psArgs.push("-File", scriptPath, ...paramStrings);
+    } else {
+      // For script content (legacy behavior), use -Command and wrap in a script block
+      const fullCommand = `& { ${script} } ${paramStrings.join(" ")}`;
+      psArgs.push("-Command", fullCommand);
+    }
 
     const powershell = spawn("powershell.exe", psArgs, {
       stdio: ["pipe", "pipe", "pipe"],

@@ -4,10 +4,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import * as diagnostics from './tools/diagnostics.js';
 import * as registry from './tools/registry.js';
-import * as eventViewer from './tools/event_viewer_analyzer.js';
-import * as eventViewerSearch from './tools/event_viewer_search.js';
+import * as eventViewer from './tools/event_viewer.js';
 import * as apps from './tools/apps_and_processes.js';
-import * as hardware from './tools/hardware_monitor.js';
+import { hardwareMonitor } from './tools/hardware_monitor.js';
 class WindowsDiagnosticsServer {
     server;
     constructor() {
@@ -254,190 +253,147 @@ class WindowsDiagnosticsServer {
                                     description: 'Check memory health',
                                     default: true,
                                 },
-                            },
-                        },
-                    },
-                    {
-                        name: 'event_viewer_analyzer',
-                        description: 'Analyze Windows Event Viewer logs with advanced filtering and analysis',
-                        inputSchema: {
-                            type: 'object',
-                            properties: {
-                                logNames: {
-                                    type: 'array',
-                                    items: { type: 'string' },
-                                    description: 'Names of the event logs to search (e.g., Application, System)',
-                                },
-                                searchTerms: {
-                                    type: 'array',
-                                    items: { type: 'string' },
-                                    description: 'Keywords to search for in log messages',
-                                },
-                                eventIds: {
-                                    type: 'array',
-                                    items: { type: 'number' },
-                                    description: 'Specific event IDs to filter by',
-                                },
-                                sources: {
-                                    type: 'array',
-                                    items: { type: 'string' },
-                                    description: 'Event sources to filter by',
-                                },
-                                hours: {
-                                    type: 'number',
-                                    description: 'Number of hours back to search',
-                                },
-                                days: {
-                                    type: 'number',
-                                    description: 'Number of days back to search',
-                                },
-                                startTime: {
-                                    type: 'string',
-                                    description: 'Start time for the search (e.g., "YYYY-MM-DDTHH:mm:ss")',
-                                },
-                                endTime: {
-                                    type: 'string',
-                                    description: 'End time for the search (e.g., "YYYY-MM-DDTHH:mm:ss")',
-                                },
-                                errorsOnly: {
+                                debug: {
                                     type: 'boolean',
-                                    description: 'Only show events with level Error',
-                                },
-                                warningsOnly: {
-                                    type: 'boolean',
-                                    description: 'Only show events with level Warning',
-                                },
-                                criticalOnly: {
-                                    type: 'boolean',
-                                    description: 'Only show events with level Critical',
-                                },
-                                securityAnalysis: {
-                                    type: 'boolean',
-                                    description: 'Perform a security-focused analysis of events',
-                                },
-                                detailed: {
-                                    type: 'boolean',
-                                    description: 'Include detailed event information',
-                                },
-                                exportJson: {
-                                    type: 'boolean',
-                                    description: 'Export results to a JSON file',
-                                },
-                                exportCsv: {
-                                    type: 'boolean',
-                                    description: 'Export results to a CSV file',
-                                },
-                                outputPath: {
-                                    type: 'string',
-                                    description: 'Path to save the exported file',
-                                },
-                                maxEvents: {
-                                    type: 'number',
-                                    description: 'Maximum number of events to return',
-                                },
-                                showStats: {
-                                    type: 'boolean',
-                                    description: 'Show statistics about the events found',
-                                },
-                                groupBySource: {
-                                    type: 'boolean',
-                                    description: 'Group events by their source',
-                                },
-                                timelineView: {
-                                    type: 'boolean',
-                                    description: 'Display events in a timeline view',
+                                    description: 'Enable debug mode for detailed troubleshooting information',
+                                    default: false,
                                 },
                             },
                         },
                     },
                     {
-                        name: 'event_viewer_search',
-                        description: 'Comprehensive Windows Event Viewer search tool that enumerates all available logs and searches across them for keywords, event IDs, or other criteria. This tool can discover and search all Windows event logs, not just the main four.',
+                        name: 'event_viewer',
+                        description: 'Comprehensive Windows Event Viewer tool that combines search and analysis capabilities. Can enumerate ALL available Windows event logs and search across them for keywords, event IDs, or other criteria, while also providing detailed security analysis, error pattern detection, and actionable recommendations.',
                         inputSchema: {
                             type: 'object',
                             properties: {
-                                searchKeyword: {
+                                SearchKeyword: {
                                     type: 'string',
                                     description: 'Keyword to search for in event messages',
                                 },
-                                eventIds: {
+                                EventIDs: {
                                     type: 'array',
                                     items: { type: 'number' },
                                     description: 'Specific event IDs to filter by',
                                 },
-                                sources: {
+                                Sources: {
                                     type: 'array',
                                     items: { type: 'string' },
                                     description: 'Event sources/providers to filter by',
                                 },
-                                logNames: {
+                                LogNames: {
                                     type: 'array',
                                     items: { type: 'string' },
                                     description: 'Specific log names to search (if empty, searches all available logs)',
                                 },
-                                hours: {
+                                Hours: {
                                     type: 'number',
                                     description: 'Number of hours back to search (default: 24)',
                                 },
-                                days: {
+                                Days: {
                                     type: 'number',
                                     description: 'Number of days back to search (overrides hours if specified)',
                                 },
-                                startTime: {
+                                StartTime: {
                                     type: 'string',
                                     description: 'Start time for the search (format: "YYYY-MM-DDTHH:mm:ss")',
                                 },
-                                endTime: {
+                                EndTime: {
                                     type: 'string',
                                     description: 'End time for the search (format: "YYYY-MM-DDTHH:mm:ss")',
                                 },
-                                maxEventsPerLog: {
+                                MaxEventsPerLog: {
                                     type: 'number',
                                     description: 'Maximum number of events to return per log (default: 100)',
                                 },
-                                includeDisabledLogs: {
+                                IncludeDisabledLogs: {
                                     type: 'boolean',
                                     description: 'Include disabled logs in the search',
                                 },
-                                errorsOnly: {
+                                ErrorsOnly: {
                                     type: 'boolean',
                                     description: 'Only show events with level Error',
                                 },
-                                warningsOnly: {
+                                WarningsOnly: {
                                     type: 'boolean',
                                     description: 'Only show events with level Warning',
                                 },
-                                criticalOnly: {
+                                CriticalOnly: {
                                     type: 'boolean',
                                     description: 'Only show events with level Critical',
                                 },
-                                informationOnly: {
+                                InformationOnly: {
                                     type: 'boolean',
                                     description: 'Only show events with level Information',
                                 },
-                                verbose: {
+                                Verbose: {
                                     type: 'boolean',
                                     description: 'Enable verbose output during search',
                                 },
-                                showLogDiscovery: {
+                                ShowLogDiscovery: {
                                     type: 'boolean',
                                     description: 'Include detailed log discovery information in results',
                                 },
-                                skipSecurityLog: {
+                                SkipSecurityLog: {
                                     type: 'boolean',
                                     description: 'Skip the Security log (useful if access is denied)',
                                 },
-                                includeSystemLogs: {
+                                IncludeSystemLogs: {
                                     type: 'boolean',
                                     description: 'Include only system logs (System, Security, Application, Setup)',
                                 },
-                                includeApplicationLogs: {
+                                IncludeApplicationLogs: {
                                     type: 'boolean',
                                     description: 'Include only application-related logs',
                                 },
-                                includeCustomLogs: {
+                                IncludeCustomLogs: {
                                     type: 'boolean',
                                     description: 'Include only custom/third-party logs',
+                                },
+                                SearchTerms: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'Alternative to searchKeyword - array of search terms',
+                                },
+                                SecurityAnalysis: {
+                                    type: 'boolean',
+                                    description: 'Perform detailed security analysis',
+                                },
+                                Detailed: {
+                                    type: 'boolean',
+                                    description: 'Include detailed analysis in results',
+                                },
+                                ExportJson: {
+                                    type: 'boolean',
+                                    description: 'Export results to JSON file',
+                                },
+                                ExportCsv: {
+                                    type: 'boolean',
+                                    description: 'Export results to CSV file',
+                                },
+                                OutputPath: {
+                                    type: 'string',
+                                    description: 'Output path for exported files',
+                                },
+                                MaxEvents: {
+                                    type: 'number',
+                                    description: 'Maximum total events to analyze (default: 1000)',
+                                },
+                                ShowStats: {
+                                    type: 'boolean',
+                                    description: 'Show detailed statistics',
+                                },
+                                GroupBySource: {
+                                    type: 'boolean',
+                                    description: 'Group results by event source',
+                                },
+                                TimelineView: {
+                                    type: 'boolean',
+                                    description: 'Include timeline view in results',
+                                },
+                                Debug: {
+                                    type: 'boolean',
+                                    description: 'Enable debug output for troubleshooting',
                                 },
                             },
                         },
@@ -480,11 +436,9 @@ class WindowsDiagnosticsServer {
                     case 'list_installed_apps':
                         return await apps.listInstalledApps(args);
                     case 'hardware_monitor':
-                        return await hardware.hardwareMonitor.execute(args);
-                    case 'event_viewer_analyzer':
-                        return await eventViewer.eventViewerAnalyzer(args);
-                    case 'event_viewer_search':
-                        return await eventViewerSearch.eventViewerSearch.execute(args);
+                        return await hardwareMonitor(args);
+                    case 'event_viewer':
+                        return await eventViewer.eventViewer(args);
                     default:
                         throw new Error(`Unknown tool: ${name}`);
                 }

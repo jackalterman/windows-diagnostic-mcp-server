@@ -171,15 +171,6 @@ export interface AppsAndProcessesResults {
 }
 
 // Type definitions for the hardware monitor script results
-export const hardwareMonitorParamsSchema = z.object({
-  checkTemperatures: z.boolean().default(true),
-  checkFanSpeeds: z.boolean().default(true),
-  checkSmartStatus: z.boolean().default(true),
-  checkMemoryHealth: z.boolean().default(true),
-});
-
-export type HardwareMonitorParams = z.infer<typeof hardwareMonitorParamsSchema>;
-
 export interface TemperatureReading {
   Sensor: string;
   TemperatureC: number;
@@ -198,7 +189,9 @@ export interface SmartStatus {
 
 export interface MemoryHealth {
   Status: string;
-  Errors: any[];
+  Errors: string[];
+  TotalMemoryGB?: number;
+  UsagePercent?: number;
 }
 
 export interface HardwareMonitorOutput {
@@ -209,12 +202,13 @@ export interface HardwareMonitorOutput {
   Errors: string[];
 }
 
-export interface Tool {
-    name: string;
-    description: string;
-    schema: z.ZodObject<any>;
-    execute: (params: any) => Promise<any>;
-  }
+export interface HardwareMonitorParams {
+  checkTemperatures?: boolean;
+  checkFanSpeeds?: boolean;
+  checkSmartStatus?: boolean;
+  checkMemoryHealth?: boolean;
+  debug?: boolean;
+}
 
 // Type definitions for the network diagnostic script results
 export const networkDiagnosticParamsSchema = z.object({
@@ -309,8 +303,45 @@ export interface NetworkDiagnosticOutput {
     Errors: string[];
 }
 
-// Type definitions for the comprehensive event viewer search tool
-export interface EventViewerSearchEvent {
+// Event Viewer Types (to be added to types.js)
+export interface EventViewerParams {
+  // Search parameters
+  SearchKeyword?: string;
+  EventIDs?: number[];
+  Sources?: string[];
+  LogNames?: string[];
+  Hours?: number;
+  Days?: number;
+  StartTime?: string;
+  EndTime?: string;
+  MaxEventsPerLog?: number;
+  IncludeDisabledLogs?: boolean;
+  ErrorsOnly?: boolean;
+  WarningsOnly?: boolean;
+  CriticalOnly?: boolean;
+  InformationOnly?: boolean;
+  Verbose?: boolean;
+  ShowLogDiscovery?: boolean;
+  SkipSecurityLog?: boolean;
+  IncludeSystemLogs?: boolean;
+  IncludeApplicationLogs?: boolean;
+  IncludeCustomLogs?: boolean;
+  
+  // Analyzer parameters
+  SearchTerms?: string[];
+  SecurityAnalysis?: boolean;
+  Detailed?: boolean;
+  ExportJson?: boolean;
+  ExportCsv?: boolean;
+  OutputPath?: string;
+  MaxEvents?: number;
+  ShowStats?: boolean;
+  GroupBySource?: boolean;
+  TimelineView?: boolean;
+  Debug?: boolean;
+}
+
+export interface EventViewerEvent {
   TimeCreated: string;
   LogName: string;
   Level: number;
@@ -362,28 +393,90 @@ export interface SearchResults {
   }>;
 }
 
-export interface EventViewerSearchOutput {
+export interface SecurityAnalysis {
+  LogonEvents: {
+    Successful: number;
+    Failed: number;
+    Logoffs: number;
+    ExplicitCredentialUse: number;
+  };
+  FailedLogons: Array<{
+    Account: string;
+    Attempts: number;
+  }>;
+  AccountLockouts: EventViewerEvent[];
+  PrivilegeUse: EventViewerEvent[];
+  PolicyChanges: EventViewerEvent[];
+  SuspiciousActivity: string[];
+}
+
+export interface ErrorPatterns {
+  TotalErrors: number;
+  TotalWarnings: number;
+  TopErrorEventIds: Array<{
+    ID: number;
+    Count: number;
+  }>;
+  TopErrorSources: Array<{
+    Source: string;
+    Count: number;
+  }>;
+  RecentErrorCount: number;
+}
+
+export interface UnifiedEventViewerOutput {
+  // Core metadata
   Timestamp: string;
   ComputerName: string;
+  
+  // Analysis period
+  AnalysisPeriod: {
+    StartTime: string;
+    EndTime: string;
+    Duration: string;
+  };
+  
+  // Search criteria
   SearchCriteria: {
     Keyword: string;
     EventIDs: number[];
     Sources: string[];
-    TimeRange: {
-      StartTime: string;
-      EndTime: string;
-      Duration: string;
-    };
+    TimeRange: { StartTime: string; EndTime: string; Duration: string; };
     MaxEventsPerLog: number;
   };
+  
+  // Log discovery
   LogDiscovery: LogDiscoveryInfo;
+  
+  // Log summary
+  LogSummary: Record<string, any>;
+  
+  // Search results
   SearchResults: SearchResults;
-  Events: EventViewerSearchEvent[];
-  Errors: string[];
-  Warnings: string[];
+  
+  // Analysis features
+  SecurityAnalysis: SecurityAnalysis;
+  ErrorPatterns: ErrorPatterns;
+  Statistics: Record<string, any>;
+  Recommendations: string[];
+  
+  // Events
+  Events: EventViewerEvent[];
+  
+  // Performance
   Performance: {
     SearchDuration: number;
     LogsProcessed: number;
     AverageTimePerLog: number;
+  };
+  
+  // Errors and warnings
+  Errors: string[];
+  Warnings: string[];
+  
+  // Debug information (when Debug: true)
+  DebugInfo?: {
+    ParameterValues: Record<string, any>;
+    ExecutionSteps: string[];
   };
 }
