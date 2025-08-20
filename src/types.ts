@@ -480,3 +480,101 @@ export interface UnifiedEventViewerOutput {
     ExecutionSteps: string[];
   };
 }
+
+// Add these interfaces to src/types.ts
+
+export interface AdminDetails {
+  CurrentUser: string;
+  AuthenticationType: string;
+  IsSystem: boolean;
+  IsGuest: boolean;
+  IsAnonymous: boolean;
+}
+
+export interface DomainInfo {
+  ComputerName: string;
+  Domain?: string;
+  DomainRole?: number;
+  Workgroup?: string;
+  IsPartOfDomain?: boolean;
+  IsDomainController?: boolean;
+  DomainName?: string;
+  Forest?: string;
+  DomainControllers?: string[];
+  Error?: string;
+}
+
+export interface PowerShellInfo {
+  CurrentUserPolicy: string;
+  LocalMachinePolicy: string;
+  ProcessPolicy: string;
+  EffectivePolicy: string;
+  PSVersion: string;
+  PSEdition: string;
+  CanRunScripts: boolean;
+  PolicyFixed?: boolean;
+  NewPolicy?: string;
+}
+
+export interface SystemInfo {
+  OS: string;
+  Version: string;
+  Build: string;
+  TotalRAM_GB: number;
+  Architecture: string;
+  LogicalProcessors: string;
+  PowerShellHost: string;
+  PowerShellVersion: string;
+}
+
+export interface UsageGuideSection {
+  [key: string]: string | string[];
+}
+
+export interface UsageGuide {
+  QuickStart: UsageGuideSection;
+  CommonWorkflows: {
+    TroubleshootCrashes: string[];
+    PerformanceAnalysis: string[];
+    SecurityAudit: string[];
+  };
+  ToolCategories: {
+    SystemHealth: string[];
+    Hardware: string[];
+    Events: string[];
+    Registry: string[];
+    Processes: string[];
+    Startup: string[];
+  };
+  PermissionNotes: {
+    RequiredForMost: string;
+    CanRunWithoutAdmin: string[];
+    AdminRecommended: string[];
+  };
+}
+
+export interface SystemInfoSummary {
+  Administrator: boolean;
+  DomainJoined: boolean;
+  ScriptsEnabled: boolean;
+  ReadyForDiagnostics: boolean;
+}
+
+export interface SystemInfoOutput {
+  IsAdministrator: boolean;
+  AdminDetails: AdminDetails;
+  DomainInfo: DomainInfo;
+  PowerShellInfo: PowerShellInfo;
+  SystemInfo?: SystemInfo;
+  UsageGuide: UsageGuide;
+  Recommendations: string[];
+  Errors: string[];
+  Warnings: string[];
+  Summary: SystemInfoSummary;
+}
+
+export interface SystemInfoParams {
+  FixExecutionPolicy?: boolean;
+  ShowHelp?: boolean;
+  Detailed?: boolean;
+}

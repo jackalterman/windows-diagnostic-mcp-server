@@ -7,6 +7,7 @@ import * as registry from './tools/registry.js';
 import * as eventViewer from './tools/event_viewer.js';
 import * as apps from './tools/apps_and_processes.js';
 import { hardwareMonitor } from './tools/hardware_monitor.js';
+import * as usageGuide from './tools/usage_guide_and_administrator_check.js';
 class WindowsDiagnosticsServer {
     server;
     constructor() {
@@ -397,6 +398,30 @@ class WindowsDiagnosticsServer {
                                 },
                             },
                         },
+                    },
+                    {
+                        name: 'get_usage_guide_and_check_for_administrator',
+                        description: 'Check administrator privileges, domain status, PowerShell execution policy, and get diagnostic toolset usage guide. Essential first step for system diagnostics.',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                FixExecutionPolicy: {
+                                    type: 'boolean',
+                                    description: 'Attempt to set PowerShell execution policy to RemoteSigned for current user',
+                                    default: false
+                                },
+                                ShowHelp: {
+                                    type: 'boolean',
+                                    description: 'Display detailed usage guide for the diagnostic toolset',
+                                    default: false
+                                },
+                                Detailed: {
+                                    type: 'boolean',
+                                    description: 'Include additional system information and context',
+                                    default: false
+                                }
+                            }
+                        }
                     }
                 ],
             };
@@ -439,6 +464,8 @@ class WindowsDiagnosticsServer {
                         return await hardwareMonitor(args);
                     case 'event_viewer':
                         return await eventViewer.eventViewer(args);
+                    case 'get_usage_guide_and_check_for_administrator':
+                        return await usageGuide.getSystemInfo(args);
                     default:
                         throw new Error(`Unknown tool: ${name}`);
                 }
