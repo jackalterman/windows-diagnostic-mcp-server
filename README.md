@@ -20,6 +20,8 @@ A Model Context Protocol (MCP) server that provides comprehensive Windows system
 - **Registry Health Assessment**: Overall registry health evaluation
 - **Security Risk Scanning**: Scan for potential security risks in the registry
 
+![screenshot of MCP use in Claude Desktop](<Windows Diagnostic MCP in Claude Desktop.png>)
+
 ## Installation
 
 ### Prerequisites
