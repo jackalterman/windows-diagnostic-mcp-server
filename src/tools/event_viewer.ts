@@ -24,32 +24,22 @@ export async function eventViewer(args: {
   WarningsOnly?: boolean;
   CriticalOnly?: boolean;
   InformationOnly?: boolean;
-  Verbose?: boolean;
-  ShowLogDiscovery?: boolean;
   SkipSecurityLog?: boolean;
   IncludeSystemLogs?: boolean;
   IncludeApplicationLogs?: boolean;
-  IncludeCustomLogs?: boolean;
-  
-  // Analyzer parameters
+  DeepSearch?: boolean;
+  Detailed?: boolean;
   SearchTerms?: string[];
   SecurityAnalysis?: boolean;
-  Detailed?: boolean;
   ExportJson?: boolean;
   ExportCsv?: boolean;
   OutputPath?: string;
-  MaxEvents?: number;
-  ShowStats?: boolean;
-  GroupBySource?: boolean;
-  TimelineView?: boolean;
-  Debug?: boolean;
 }) {
   try {
     // Convert number arrays to string arrays for PowerShell compatibility
     const powershellArgs = {
       ...args,
-      EventIDs: args.EventIDs?.map(id => id.toString()),
-      JsonOutput: true,
+      EventIDs: args.EventIDs?.map(id => id.toString())
     };
 
     const result = await runPowerShellScript(

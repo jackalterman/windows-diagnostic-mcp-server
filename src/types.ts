@@ -320,25 +320,16 @@ export interface EventViewerParams {
   WarningsOnly?: boolean;
   CriticalOnly?: boolean;
   InformationOnly?: boolean;
-  Verbose?: boolean;
-  ShowLogDiscovery?: boolean;
   SkipSecurityLog?: boolean;
   IncludeSystemLogs?: boolean;
   IncludeApplicationLogs?: boolean;
-  IncludeCustomLogs?: boolean;
-  
-  // Analyzer parameters
+  DeepSearch?: boolean;
+  Detailed?: boolean;
   SearchTerms?: string[];
   SecurityAnalysis?: boolean;
-  Detailed?: boolean;
   ExportJson?: boolean;
   ExportCsv?: boolean;
   OutputPath?: string;
-  MaxEvents?: number;
-  ShowStats?: boolean;
-  GroupBySource?: boolean;
-  TimelineView?: boolean;
-  Debug?: boolean;
 }
 
 export interface EventViewerEvent {

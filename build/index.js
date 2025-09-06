@@ -327,10 +327,6 @@ class WindowsDiagnosticsServer {
                                     type: 'boolean',
                                     description: 'Only show events with level Information',
                                 },
-                                Verbose: {
-                                    type: 'boolean',
-                                    description: 'Enable verbose output during search',
-                                },
                                 ShowLogDiscovery: {
                                     type: 'boolean',
                                     description: 'Include detailed log discovery information in results',
@@ -350,6 +346,10 @@ class WindowsDiagnosticsServer {
                                 IncludeCustomLogs: {
                                     type: 'boolean',
                                     description: 'Include only custom/third-party logs',
+                                },
+                                DeepSearch: {
+                                    type: 'boolean',
+                                    description: 'Perform deep search across all event properties',
                                 },
                                 SearchTerms: {
                                     type: 'array',
@@ -375,27 +375,7 @@ class WindowsDiagnosticsServer {
                                 OutputPath: {
                                     type: 'string',
                                     description: 'Output path for exported files',
-                                },
-                                MaxEvents: {
-                                    type: 'number',
-                                    description: 'Maximum total events to analyze (default: 1000)',
-                                },
-                                ShowStats: {
-                                    type: 'boolean',
-                                    description: 'Show detailed statistics',
-                                },
-                                GroupBySource: {
-                                    type: 'boolean',
-                                    description: 'Group results by event source',
-                                },
-                                TimelineView: {
-                                    type: 'boolean',
-                                    description: 'Include timeline view in results',
-                                },
-                                Debug: {
-                                    type: 'boolean',
-                                    description: 'Enable debug output for troubleshooting',
-                                },
+                                }
                             },
                         },
                     },

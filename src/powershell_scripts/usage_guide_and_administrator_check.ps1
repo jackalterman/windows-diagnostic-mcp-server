@@ -139,37 +139,37 @@ try {
 
     # Usage Guide
     if ($ShowHelp -or $true) {  # Always include basic guide
-        $Results.UsageGuide = @{
+                $Results.UsageGuide = @{
             QuickStart = @{
                 BasicDiagnostic = "Use 'get_system_diagnostics' for a quick overview of system health, crashes, and recent events"
                 DeepAnalysis = "Use 'analyze_system_stability' with 30+ days for comprehensive stability analysis"
                 HardwareCheck = "Use 'hardware_monitor' to check temperatures, fan speeds, and drive health"
-                EventAnalysis = "Use 'event_viewer' with specific keywords or timeframes for detailed log analysis"
+                EventAnalysis = "Use 'event_viewer' with parameters like -SearchKeyword, -Hours, or -Days for detailed log analysis"
             }
             CommonWorkflows = @{
                 TroubleshootCrashes = @(
                     "1. Run get_system_diagnostics to see recent crashes",
-                    "2. Use get_bsod_events for Blue Screen details", 
+                    "2. Use get_bsod_events for Blue Screen details",
                     "3. Check hardware_monitor for temperature issues",
-                    "4. Use event_viewer with 'critical' or 'error' keywords"
+                    "4. Use event_viewer with -CriticalOnly or -ErrorsOnly switches"
                 )
                 PerformanceAnalysis = @(
                     "1. Run hardware_monitor to check system temps and resources",
                     "2. Use list_processes to identify resource-heavy applications",
                     "3. Check analyze_system_stability for patterns over time",
-                    "4. Use event_viewer to look for performance-related events"
+                    "4. Use event_viewer with -SearchTerms 'performance,slow' to find related events"
                 )
                 SecurityAudit = @(
                     "1. Run scan_security_risks to check for registry vulnerabilities",
                     "2. Use analyze_startup_programs to check for suspicious autostart entries",
-                    "3. Check event_viewer with SecurityAnalysis=true",
+                    "3. Check event_viewer with -SecurityAnalysis switch",
                     "4. Review get_registry_health for system integrity"
                 )
             }
             ToolCategories = @{
                 SystemHealth = @("get_system_diagnostics", "analyze_system_stability", "get_system_uptime")
                 Hardware = @("hardware_monitor")
-                Events = @("event_viewer", "get_bsod_events", "get_shutdown_events") 
+                Events = @("event_viewer", "get_bsod_events", "get_shutdown_events")
                 Registry = @("get_registry_health", "scan_security_risks", "find_orphaned_entries", "search_registry")
                 Processes = @("list_processes", "kill_process", "start_process", "list_installed_apps")
                 Startup = @("analyze_startup_programs", "scan_system_components")
