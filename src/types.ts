@@ -261,11 +261,41 @@ export interface MemoryHealth {
   RAMModules?: RAMModule[];
 }
 
+export interface DiskUsage {
+  Drive: string;
+  Label?: string;
+  FileSystem?: string;
+  TotalSizeGB: number;
+  UsedSizeGB: number;
+  FreeSizeGB: number;
+  UsagePercent: number;
+  Status: string;
+}
+
+export interface LargeFile {
+  Path: string;
+  SizeMB: number;
+  SizeGB: number;
+  LastModified: string;
+  Extension?: string;
+}
+
+export interface LargeFolder {
+  Path: string;
+  SizeMB: number;
+  SizeGB: number;
+  LastModified: string;
+  ItemCount: number;
+}
+
 export interface HardwareMonitorOutput {
   Temperatures: TemperatureReading[];
   FanSpeeds: FanSpeedReading[];
   SMARTStatus: SmartStatus[];
   MemoryHealth: MemoryHealth;
+  DiskUsage: DiskUsage[];
+  LargeFiles: LargeFile[];
+  LargeFolders: LargeFolder[];
   Errors: string[];
 }
 
@@ -274,6 +304,8 @@ export interface HardwareMonitorParams {
   checkFanSpeeds?: boolean;
   checkSmartStatus?: boolean;
   checkMemoryHealth?: boolean;
+  checkDiskUsage?: boolean;
+  scanLargeFiles?: boolean;
   debug?: boolean;
 }
 

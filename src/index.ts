@@ -244,7 +244,7 @@ class WindowsDiagnosticsServer {
           },
           {
             name: 'hardware_monitor',
-            description: 'Monitors hardware health including temperatures, fan speeds, drive SMART status, and memory health.',
+            description: 'Monitors hardware health including temperatures, fan speeds, drive SMART status, memory health, disk usage, and large files/folders scanning.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -267,6 +267,16 @@ class WindowsDiagnosticsServer {
                   type: 'boolean',
                   description: 'Check memory health',
                   default: true,
+                },
+                checkDiskUsage: {
+                  type: 'boolean',
+                  description: 'Check disk usage and free space (may take time)',
+                  default: false,
+                },
+                scanLargeFiles: {
+                  type: 'boolean',
+                  description: 'Scan for large files (>100MB) and folders (>1GB) - WinDirStat-like functionality (may take significant time)',
+                  default: false,
                 },
                 debug: {
                   type: 'boolean',

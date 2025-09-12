@@ -13,12 +13,16 @@ export async function hardwareMonitor(args: {
     checkFanSpeeds?: boolean;
     checkSmartStatus?: boolean;
     checkMemoryHealth?: boolean;
+    checkDiskUsage?: boolean;
+    scanLargeFiles?: boolean;
     debug?: boolean;
 }) {
     const checkTemperatures = args.checkTemperatures ?? true;
     const checkFanSpeeds = args.checkFanSpeeds ?? true;
     const checkSmartStatus = args.checkSmartStatus ?? true;
     const checkMemoryHealth = args.checkMemoryHealth ?? true;
+    const checkDiskUsage = args.checkDiskUsage ?? false;
+    const scanLargeFiles = args.scanLargeFiles ?? false;
     const debug = args.debug ?? false;
 
     try {
@@ -29,6 +33,8 @@ export async function hardwareMonitor(args: {
                 checkFanSpeeds,
                 checkSmartStatus,
                 checkMemoryHealth,
+                checkDiskUsage,
+                scanLargeFiles,
                 debug,
                 JsonOutput: true,
             }
@@ -96,6 +102,32 @@ ${result.MemoryHealth.Errors && result.MemoryHealth.Errors.length > 0
     : ''}`
     : 'Memory health data not available.';
 
+        // Format disk usage
+        const diskUsageText = result.DiskUsage && result.DiskUsage.length > 0
+            ? result.DiskUsage.map(d => {
+                const statusIcon = d.Status === 'Critical' ? '🔴' : d.Status === 'Warning' ? '🟡' : '🟢';
+                return `- **${d.Drive}** ${d.Label ? `(${d.Label})` : ''} ${statusIcon} ${d.Status}
+  - **Total**: ${d.TotalSizeGB}GB | **Used**: ${d.UsedSizeGB}GB | **Free**: ${d.FreeSizeGB}GB
+  - **Usage**: ${d.UsagePercent}% | **File System**: ${d.FileSystem || 'Unknown'}`;
+              }).join('\n\n')
+            : 'No disk usage data available.';
+
+        // Format large files
+        const largeFilesText = result.LargeFiles && result.LargeFiles.length > 0
+            ? result.LargeFiles.map(f => {
+                const sizeDisplay = f.SizeGB >= 1 ? `${f.SizeGB}GB` : `${f.SizeMB}MB`;
+                return `- **${f.Path}** - ${sizeDisplay} (${f.Extension || 'No extension'}) - ${f.LastModified}`;
+              }).join('\n')
+            : 'No large files found.';
+
+        // Format large folders
+        const largeFoldersText = result.LargeFolders && result.LargeFolders.length > 0
+            ? result.LargeFolders.map(f => {
+                const sizeDisplay = f.SizeGB >= 1 ? `${f.SizeGB}GB` : `${f.SizeMB}MB`;
+                return `- **${f.Path}** - ${sizeDisplay} (${f.ItemCount.toLocaleString()} items) - ${f.LastModified}`;
+              }).join('\n')
+            : 'No large folders found.';
+
         // Format errors
         const errorsText = result.Errors && result.Errors.length > 0
             ? `## Errors\n${result.Errors.map(e => `- ${e}`).join('\n')}`
@@ -119,7 +151,16 @@ ${smartStatusText}
 ## Memory Health
 ${memoryHealthText}
 
-${errorsText}`.trim(),
+${checkDiskUsage ? `## Disk Usage
+${diskUsageText}
+
+` : ''}${scanLargeFiles ? `## Large Files (>100MB)
+${largeFilesText}
+
+## Large Folders (>1GB)
+${largeFoldersText}
+
+` : ''}${errorsText}`.trim(),
                 },
             ],
         };

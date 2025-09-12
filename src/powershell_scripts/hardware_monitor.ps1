@@ -1,5 +1,3 @@
-Add-Type -AssemblyName System.Web
-
 <#
 .SYNOPSIS
     Comprehensive Hardware Monitoring Script for Windows Systems
@@ -14,7 +12,9 @@ param(
     [switch]$checkTemperatures,
     [switch]$checkFanSpeeds,
     [switch]$checkSmartStatus,
-    [switch]$checkMemoryHealth
+    [switch]$checkMemoryHealth,
+    [switch]$checkDiskUsage,
+    [switch]$scanLargeFiles
 )
 
 # Default all switches to true if not provided
@@ -22,6 +22,8 @@ $checkTemperatures = if ($PSBoundParameters.ContainsKey("checkTemperatures")) { 
 $checkFanSpeeds = if ($PSBoundParameters.ContainsKey("checkFanSpeeds")) { $checkFanSpeeds } else { $true }
 $checkSmartStatus = if ($PSBoundParameters.ContainsKey("checkSmartStatus")) { $checkSmartStatus } else { $true }
 $checkMemoryHealth = if ($PSBoundParameters.ContainsKey("checkMemoryHealth")) { $checkMemoryHealth } else { $true }
+$checkDiskUsage = if ($PSBoundParameters.ContainsKey("checkDiskUsage")) { $checkDiskUsage } else { $false }
+$scanLargeFiles = if ($PSBoundParameters.ContainsKey("scanLargeFiles")) { $scanLargeFiles } else { $false }
 
 # Initialize results object with the expected structure
 $Output = @{
@@ -32,8 +34,13 @@ $Output = @{
         Status = "Unknown"
         Errors = @()
     }
+    DiskUsage = @()
+    LargeFiles = @()
+    LargeFolders = @()
     Errors = @()
 }
+
+Add-Type -AssemblyName System.Web
 
 #region Temperature Monitoring
 if ($checkTemperatures) {
@@ -289,6 +296,126 @@ if ($checkMemoryHealth) {
     catch {
         $Output.MemoryHealth.Status = "Error"
         $Output.Errors += "Memory monitoring error: $($_.Exception.Message)"
+    }
+}
+#endregion
+
+#region Disk Usage Analysis
+if ($checkDiskUsage) {
+    try {
+        Write-Host "Scanning disk usage..." -ForegroundColor Yellow
+        
+        # Get all logical drives
+        $drives = Get-WmiObject -Class "Win32_LogicalDisk" -ErrorAction SilentlyContinue
+        
+        if ($drives) {
+            foreach ($drive in $drives) {
+                if ($drive.DriveType -eq 3) { # Fixed drives only
+                    $totalSize = $drive.Size
+                    $freeSpace = $drive.FreeSpace
+                    $usedSpace = $totalSize - $freeSpace
+                    $usagePercent = if ($totalSize -gt 0) { [math]::Round(($usedSpace / $totalSize) * 100, 1) } else { 0 }
+                    
+                    $diskInfo = @{
+                        Drive = $drive.DeviceID
+                        Label = $drive.VolumeName
+                        FileSystem = $drive.FileSystem
+                        TotalSizeGB = [math]::Round($totalSize / 1GB, 2)
+                        UsedSizeGB = [math]::Round($usedSpace / 1GB, 2)
+                        FreeSizeGB = [math]::Round($freeSpace / 1GB, 2)
+                        UsagePercent = $usagePercent
+                        Status = if ($usagePercent -gt 90) { "Critical" } elseif ($usagePercent -gt 80) { "Warning" } else { "Normal" }
+                    }
+                    
+                    $Output.DiskUsage += $diskInfo
+                }
+            }
+        }
+        
+        if ($Output.DiskUsage.Count -eq 0) {
+            $Output.Errors += "No disk usage data available"
+        }
+    }
+    catch {
+        $Output.Errors += "Disk usage scanning error: $($_.Exception.Message)"
+    }
+}
+#endregion
+
+#region Large Files and Folders Scanning
+if ($scanLargeFiles) {
+    try {
+        Write-Host "Scanning for large files and folders..." -ForegroundColor Yellow
+        
+        # Get all logical drives
+        $drives = Get-WmiObject -Class "Win32_LogicalDisk" -ErrorAction SilentlyContinue
+        
+        if ($drives) {
+            foreach ($drive in $drives) {
+                if ($drive.DriveType -eq 3) { # Fixed drives only
+                    $driveLetter = $drive.DeviceID.TrimEnd('\')
+                    
+                    # Scan for large files (>100MB)
+                    try {
+                        $largeFiles = Get-ChildItem -Path $driveLetter -Recurse -File -ErrorAction SilentlyContinue | 
+                                    Where-Object { $_.Length -gt 100MB } | 
+                                    Sort-Object Length -Descending | 
+                                    Select-Object -First 20 | 
+                                    ForEach-Object {
+                                        @{
+                                            Path = $_.FullName
+                                            SizeMB = [math]::Round($_.Length / 1MB, 2)
+                                            SizeGB = [math]::Round($_.Length / 1GB, 2)
+                                            LastModified = $_.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+                                            Extension = $_.Extension
+                                        }
+                                    }
+                        
+                        $Output.LargeFiles += $largeFiles
+                    }
+                    catch {
+                        $Output.Errors += "Error scanning large files on $driveLetter : $($_.Exception.Message)"
+                    }
+                    
+                    # Scan for large folders (>1GB)
+                    try {
+                        $largeFolders = Get-ChildItem -Path $driveLetter -Directory -ErrorAction SilentlyContinue | 
+                                      ForEach-Object {
+                                          try {
+                                              $size = (Get-ChildItem -Path $_.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                                                     Measure-Object -Property Length -Sum).Sum
+                                              if ($size -gt 1GB) {
+                                                  @{
+                                                      Path = $_.FullName
+                                                      SizeMB = [math]::Round($size / 1MB, 2)
+                                                      SizeGB = [math]::Round($size / 1GB, 2)
+                                                      LastModified = $_.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+                                                      ItemCount = (Get-ChildItem -Path $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
+                                                  }
+                                              }
+                                          }
+                                          catch {
+                                              # Skip folders that can't be accessed
+                                          }
+                                      } | 
+                                      Sort-Object SizeGB -Descending | 
+                                      Select-Object -First 15
+                        
+                        $Output.LargeFolders += $largeFolders
+                    }
+                    catch {
+                        $Output.Errors += "Error scanning large folders on $driveLetter : $($_.Exception.Message)"
+                    }
+                }
+            }
+        }
+        
+        if ($Output.LargeFiles.Count -eq 0 -and $Output.LargeFolders.Count -eq 0) {
+            $Output.Errors += "No large files or folders found"
+        }
+    }
+    catch {
+        $Output.Errors += "Large files/folders scanning error: $($_.Exception.Message)"
     }
 }
 #endregion
