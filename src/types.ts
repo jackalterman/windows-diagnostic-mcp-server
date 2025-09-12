@@ -627,19 +627,24 @@ export interface UsageGuide {
     TroubleshootCrashes: string[];
     PerformanceAnalysis: string[];
     SecurityAudit: string[];
+    DriverTroubleshooting: string[];
+    StorageManagement: string[];
   };
   ToolCategories: {
     SystemHealth: string[];
     Hardware: string[];
+    Storage: string[];
     Events: string[];
     Registry: string[];
     Processes: string[];
     Startup: string[];
+    Drivers: string[];
   };
   PermissionNotes: {
     RequiredForMost: string;
     CanRunWithoutAdmin: string[];
     AdminRecommended: string[];
+    PerformanceNotes?: string[];
   };
 }
 

@@ -116,12 +116,21 @@ export async function getSystemInfo(args: AllTypes.SystemInfoParams = {}) {
       }
     }
     response += "\n"
+    
+    response += "**Storage Management:**\n"
+    if (result.UsageGuide.CommonWorkflows?.StorageManagement) {
+      for (const step of result.UsageGuide.CommonWorkflows.StorageManagement) {
+        response += `- ${step}\n`
+      }
+    }
+    response += "\n"
 
     response += "### 📚 Available Tool Categories\n\n"
     const categories = result.UsageGuide.ToolCategories
     if (categories) {
       response += `**System Health:** ${categories.SystemHealth?.join(', ')}\n`
       response += `**Hardware:** ${categories.Hardware?.join(', ')}\n`
+      response += `**Storage:** ${categories.Storage?.join(', ')}\n`
       response += `**Events:** ${categories.Events?.join(', ')}\n`
       response += `**Registry:** ${categories.Registry?.join(', ')}\n`
       response += `**Processes:** ${categories.Processes?.join(', ')}\n`
@@ -133,6 +142,14 @@ export async function getSystemInfo(args: AllTypes.SystemInfoParams = {}) {
       response += `**Note:** ${result.UsageGuide.PermissionNotes.RequiredForMost}\n\n`
       response += `**Can Run Without Admin:** ${result.UsageGuide.PermissionNotes.CanRunWithoutAdmin?.join(', ')}\n\n`
       response += `**Admin Recommended:** ${result.UsageGuide.PermissionNotes.AdminRecommended?.join(', ')}\n\n`
+      
+      if (result.UsageGuide.PermissionNotes.PerformanceNotes) {
+        response += "### ⚡ Performance Notes\n\n"
+        for (const note of result.UsageGuide.PermissionNotes.PerformanceNotes) {
+          response += `${note}\n`
+        }
+        response += "\n"
+      }
     }
   }
 

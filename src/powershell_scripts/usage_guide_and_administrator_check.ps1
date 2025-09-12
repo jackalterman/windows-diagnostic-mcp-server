@@ -143,7 +143,9 @@ try {
             QuickStart = @{
                 BasicDiagnostic = "Use 'get_system_diagnostics' for a quick overview of system health, crashes, and recent events"
                 DeepAnalysis = "Use 'analyze_system_stability' with 30+ days for comprehensive stability analysis"
-                HardwareCheck = "Use 'hardware_monitor' to check temperatures, fan speeds, and drive health"
+                HardwareCheck = "Use 'hardware_monitor' to check temperatures, fan speeds, drive health, and memory status"
+                DiskUsage = "Use 'hardware_monitor' with -checkDiskUsage to analyze disk space usage and identify storage issues"
+                LargeFiles = "Use 'hardware_monitor' with -scanLargeFiles to find large files and folders (WinDirStat-like functionality)"
                 DriverCheck = "Use 'scan_drivers' to analyze driver status, security, and health"
                 EventAnalysis = "Use 'event_viewer' with parameters like -SearchKeyword, -Hours, or -Days for detailed log analysis"
             }
@@ -156,9 +158,11 @@ try {
                 )
                 PerformanceAnalysis = @(
                     "1. Run hardware_monitor to check system temps and resources",
-                    "2. Use list_processes to identify resource-heavy applications",
-                    "3. Check analyze_system_stability for patterns over time",
-                    "4. Use event_viewer with -SearchTerms 'performance,slow' to find related events"
+                    "2. Use hardware_monitor with -checkDiskUsage to check disk space usage",
+                    "3. Use hardware_monitor with -scanLargeFiles to find space-consuming files/folders",
+                    "4. Use list_processes to identify resource-heavy applications",
+                    "5. Check analyze_system_stability for patterns over time",
+                    "6. Use event_viewer with -SearchTerms 'performance,slow' to find related events"
                 )
                 SecurityAudit = @(
                     "1. Run scan_security_risks to check for registry vulnerabilities",
@@ -173,10 +177,19 @@ try {
                     "4. Use scan_drivers with -deviceClass 'Display' for graphics issues",
                     "5. Use scan_drivers with -withErrors to see only problematic drivers"
                 )
+                StorageManagement = @(
+                    "1. Run hardware_monitor with -checkDiskUsage to check disk space usage",
+                    "2. Use hardware_monitor with -scanLargeFiles to find large files (>100MB) and folders (>1GB)",
+                    "3. Review disk usage status indicators: 🟢 Normal (<80%), 🟡 Warning (80-90%), 🔴 Critical (>90%)",
+                    "4. Identify space-consuming areas for cleanup or archiving",
+                    "5. Monitor disk health with SMART status information",
+                    "6. Use list_installed_apps to identify large applications for potential removal"
+                )
             }
             ToolCategories = @{
                 SystemHealth = @("get_system_diagnostics", "analyze_system_stability", "get_system_uptime")
                 Hardware = @("hardware_monitor", "scan_drivers")
+                Storage = @("hardware_monitor with -checkDiskUsage", "hardware_monitor with -scanLargeFiles", "list_installed_apps")
                 Events = @("event_viewer", "get_bsod_events", "get_shutdown_events")
                 Registry = @("get_registry_health", "scan_security_risks", "find_orphaned_entries", "search_registry")
                 Processes = @("list_processes", "kill_process", "start_process", "list_installed_apps")
@@ -185,8 +198,14 @@ try {
             }
             PermissionNotes = @{
                 RequiredForMost = "Many diagnostic operations require Administrator privileges"
-                CanRunWithoutAdmin = @("list_processes", "list_installed_apps", "get_system_uptime", "basic hardware_monitor", "basic scan_drivers")
-                AdminRecommended = @("event_viewer", "registry operations", "system diagnostics", "process management", "comprehensive driver analysis")
+                CanRunWithoutAdmin = @("list_processes", "list_installed_apps", "get_system_uptime", "basic hardware_monitor", "basic scan_drivers", "disk usage analysis")
+                AdminRecommended = @("event_viewer", "registry operations", "system diagnostics", "process management", "comprehensive driver analysis", "large files scanning")
+                PerformanceNotes = @(
+                    "⚠️  Large files scanning (-scanLargeFiles) can take significant time on drives with many files",
+                    "💡 Disk usage analysis (-checkDiskUsage) is fast and safe to run regularly",
+                    "🔍 Large files scanning is disabled by default due to performance considerations",
+                    "⚡ Use -checkDiskUsage first to identify problematic drives before running -scanLargeFiles"
+                )
             }
         }
     }
