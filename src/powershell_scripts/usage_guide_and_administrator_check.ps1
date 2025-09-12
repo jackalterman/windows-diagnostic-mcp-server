@@ -144,6 +144,7 @@ try {
                 BasicDiagnostic = "Use 'get_system_diagnostics' for a quick overview of system health, crashes, and recent events"
                 DeepAnalysis = "Use 'analyze_system_stability' with 30+ days for comprehensive stability analysis"
                 HardwareCheck = "Use 'hardware_monitor' to check temperatures, fan speeds, and drive health"
+                DriverCheck = "Use 'scan_drivers' to analyze driver status, security, and health"
                 EventAnalysis = "Use 'event_viewer' with parameters like -SearchKeyword, -Hours, or -Days for detailed log analysis"
             }
             CommonWorkflows = @{
@@ -165,19 +166,27 @@ try {
                     "3. Check event_viewer with -SecurityAnalysis switch",
                     "4. Review get_registry_health for system integrity"
                 )
+                DriverTroubleshooting = @(
+                    "1. Run scan_drivers with -checkHealth to find problematic drivers",
+                    "2. Use scan_drivers with -checkSecurity to identify unsigned drivers",
+                    "3. Check scan_drivers with -checkVersions to find outdated drivers",
+                    "4. Use scan_drivers with -deviceClass 'Display' for graphics issues",
+                    "5. Use scan_drivers with -withErrors to see only problematic drivers"
+                )
             }
             ToolCategories = @{
                 SystemHealth = @("get_system_diagnostics", "analyze_system_stability", "get_system_uptime")
-                Hardware = @("hardware_monitor")
+                Hardware = @("hardware_monitor", "scan_drivers")
                 Events = @("event_viewer", "get_bsod_events", "get_shutdown_events")
                 Registry = @("get_registry_health", "scan_security_risks", "find_orphaned_entries", "search_registry")
                 Processes = @("list_processes", "kill_process", "start_process", "list_installed_apps")
                 Startup = @("analyze_startup_programs", "scan_system_components")
+                Drivers = @("scan_drivers")
             }
             PermissionNotes = @{
                 RequiredForMost = "Many diagnostic operations require Administrator privileges"
-                CanRunWithoutAdmin = @("list_processes", "list_installed_apps", "get_system_uptime", "basic hardware_monitor")
-                AdminRecommended = @("event_viewer", "registry operations", "system diagnostics", "process management")
+                CanRunWithoutAdmin = @("list_processes", "list_installed_apps", "get_system_uptime", "basic hardware_monitor", "basic scan_drivers")
+                AdminRecommended = @("event_viewer", "registry operations", "system diagnostics", "process management", "comprehensive driver analysis")
             }
         }
     }
@@ -278,6 +287,8 @@ if ($JsonOutput) {
         Write-Host "get_system_diagnostics" -ForegroundColor White
         Write-Host "   Hardware Monitor: " -NoNewline  
         Write-Host "hardware_monitor" -ForegroundColor White
+        Write-Host "   Driver Analysis: " -NoNewline
+        Write-Host "scan_drivers -checkHealth -checkSecurity" -ForegroundColor White
         Write-Host "   Event Analysis: " -NoNewline
         Write-Host "event_viewer -SearchKeyword 'error' -Hours 24" -ForegroundColor White
         
@@ -285,23 +296,25 @@ if ($JsonOutput) {
         Write-Host "🔍 Common Troubleshooting Workflows:" -ForegroundColor Yellow
         Write-Host "   System Crashes → get_system_diagnostics + get_bsod_events + hardware_monitor"
         Write-Host "   Performance Issues → hardware_monitor + list_processes + analyze_system_stability" 
+        Write-Host "   Driver Problems → scan_drivers + hardware_monitor + event_viewer"
         Write-Host "   Security Audit → scan_security_risks + analyze_startup_programs + event_viewer"
         
         Write-Host ""
         Write-Host "📚 Tool Categories:" -ForegroundColor Yellow
         Write-Host "   System Health: get_system_diagnostics, analyze_system_stability"
-        Write-Host "   Hardware: hardware_monitor"
+        Write-Host "   Hardware: hardware_monitor, scan_drivers"
         Write-Host "   Events: event_viewer, get_bsod_events"
         Write-Host "   Registry: get_registry_health, scan_security_risks"
         Write-Host "   Processes: list_processes, list_installed_apps"
+        Write-Host "   Drivers: scan_drivers"
     }
     
     # Errors and Warnings
     if ($Results.Errors.Count -gt 0) {
         Write-Host ""
         Write-Host "❌ Errors:" -ForegroundColor Red
-        foreach ($error in $Results.Errors) {
-            Write-Host "   $error" -ForegroundColor Red
+        foreach ($errorMsg in $Results.Errors) {
+            Write-Host "   $errorMsg" -ForegroundColor Red
         }
     }
     

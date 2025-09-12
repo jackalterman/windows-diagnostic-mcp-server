@@ -569,3 +569,95 @@ export interface SystemInfoParams {
   ShowHelp?: boolean;
   Detailed?: boolean;
 }
+
+// Driver Scanner Types
+export interface DriverInfo {
+  DriverName: string;
+  Description: string;
+  DeviceClass: string;
+  Manufacturer: string;
+  DriverVersion: string;
+  DriverDate: string;
+  DriverPathName: string;
+  IsSigned: boolean;
+  IsEnabled: boolean;
+  Signer: string;
+  DeviceID: string;
+  HardwareID: string;
+  CompatID: string;
+  InfName: string;
+  InfSection: string;
+  InfSectionExt: string;
+  ProviderName: string;
+  DriverDateLocal: string;
+  DriverVersionLocal: string;
+  SecurityIssues?: string[];
+  HealthIssues?: string[];
+  VersionIssues?: string[];
+  // Detailed fields (when Detailed: true)
+  DriverType?: number;
+  DriverRank?: number;
+  DriverProvider?: string;
+  DriverMfgName?: string;
+  DriverOEMInf?: string;
+  DriverOEMInfExt?: string;
+  DriverInfName?: string;
+  DriverInfSection?: string;
+  DriverInfSectionExt?: string;
+  DriverInfFileName?: string;
+  DriverInfDir?: string;
+  DriverInfDate?: string;
+  DriverInfVersion?: string;
+  DriverInfSize?: number;
+  DriverInfSizeLocal?: number;
+  DriverInfDateLocal?: string;
+  DriverInfVersionLocal?: string;
+}
+
+export interface DriverSummary {
+  TotalDrivers: number;
+  SignedDrivers: number;
+  UnsignedDrivers: number;
+  EnabledDrivers: number;
+  DisabledDrivers: number;
+  DriversWithErrors: number;
+  OutdatedDrivers: number;
+  SecurityIssues: number;
+}
+
+export interface SecurityAnalysis {
+  UnsignedDrivers: DriverInfo[];
+  SuspiciousDrivers: DriverInfo[];
+  VulnerableDrivers: DriverInfo[];
+  CertificateIssues: DriverInfo[];
+}
+
+export interface HealthAnalysis {
+  ErrorDevices: DriverInfo[];
+  MissingDrivers: DriverInfo[];
+  OutdatedDrivers: DriverInfo[];
+  PerformanceIssues: DriverInfo[];
+}
+
+export interface DriverScannerOutput {
+  Drivers: DriverInfo[];
+  Summary: DriverSummary;
+  SecurityAnalysis: SecurityAnalysis;
+  HealthAnalysis: HealthAnalysis;
+  Errors: string[];
+}
+
+export interface DriverScannerParams {
+  driverName?: string;
+  deviceClass?: string;
+  manufacturer?: string;
+  signedOnly?: boolean;
+  unsignedOnly?: boolean;
+  enabledOnly?: boolean;
+  disabledOnly?: boolean;
+  withErrors?: boolean;
+  checkSecurity?: boolean;
+  checkVersions?: boolean;
+  checkHealth?: boolean;
+  detailed?: boolean;
+}

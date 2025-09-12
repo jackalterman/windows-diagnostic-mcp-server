@@ -11,7 +11,8 @@ import * as registry from './tools/registry.js';
 import * as eventViewer from './tools/event_viewer.js';
 import * as apps from './tools/apps_and_processes.js';
 import { hardwareMonitor } from './tools/hardware_monitor.js';
-import type { EventViewerParams, HardwareMonitorParams, SystemInfoParams } from './types.js';
+import * as driverScanner from './tools/driver_scanner.js';
+import type { EventViewerParams, HardwareMonitorParams, SystemInfoParams, DriverScannerParams } from './types.js';
 import * as usageGuide from './tools/usage_guide_and_administrator_check.js';
 
 class WindowsDiagnosticsServer {
@@ -415,6 +416,72 @@ class WindowsDiagnosticsServer {
                 }
               }
             }
+          },
+          {
+            name: 'scan_drivers',
+            description: 'Comprehensive Windows driver scanning and analysis tool. Scans drivers using WMI, provides detailed information about driver status, signing, security, and health. Supports filtering by various criteria and includes security analysis.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                driverName: {
+                  type: 'string',
+                  description: 'Filter drivers by name or description (supports wildcards)',
+                },
+                deviceClass: {
+                  type: 'string',
+                  description: 'Filter by device class (e.g., Display, Network, Storage, USB, etc.)',
+                },
+                manufacturer: {
+                  type: 'string',
+                  description: 'Filter by manufacturer/vendor name (supports wildcards)',
+                },
+                signedOnly: {
+                  type: 'boolean',
+                  description: 'Show only signed drivers',
+                  default: false,
+                },
+                unsignedOnly: {
+                  type: 'boolean',
+                  description: 'Show only unsigned drivers',
+                  default: false,
+                },
+                enabledOnly: {
+                  type: 'boolean',
+                  description: 'Show only enabled drivers',
+                  default: false,
+                },
+                disabledOnly: {
+                  type: 'boolean',
+                  description: 'Show only disabled drivers',
+                  default: false,
+                },
+                withErrors: {
+                  type: 'boolean',
+                  description: 'Show only drivers with error states',
+                  default: false,
+                },
+                checkSecurity: {
+                  type: 'boolean',
+                  description: 'Perform security analysis of drivers',
+                  default: false,
+                },
+                checkVersions: {
+                  type: 'boolean',
+                  description: 'Check for outdated drivers and version information',
+                  default: false,
+                },
+                checkHealth: {
+                  type: 'boolean',
+                  description: 'Analyze driver health and device status',
+                  default: false,
+                },
+                detailed: {
+                  type: 'boolean',
+                  description: 'Include detailed driver information',
+                  default: false,
+                },
+              },
+            },
           }
         ],
       };
@@ -461,6 +528,8 @@ class WindowsDiagnosticsServer {
             return await eventViewer.eventViewer(args as EventViewerParams);
           case 'get_usage_guide_and_check_for_administrator':
             return await usageGuide.getSystemInfo(args as SystemInfoParams);
+          case 'scan_drivers':
+            return await driverScanner.scanDrivers(args as DriverScannerParams);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
