@@ -58,6 +58,8 @@ export async function hardwareMonitor(args: {
 const memoryHealthText = result.MemoryHealth
     ? `- **Status**: ${result.MemoryHealth.Status}
 ${result.MemoryHealth.TotalMemoryGB ? `- **Total Memory**: ${result.MemoryHealth.TotalMemoryGB}GB` : ''}
+${result.MemoryHealth.UsedMemoryGB ? `- **Used Memory**: ${result.MemoryHealth.UsedMemoryGB}GB` : ''}
+${result.MemoryHealth.FreeMemoryGB ? `- **Free Memory**: ${result.MemoryHealth.FreeMemoryGB}GB` : ''}
 ${result.MemoryHealth.UsagePercent ? `- **Usage**: ${result.MemoryHealth.UsagePercent}%` : ''}
 ${result.MemoryHealth.Errors && result.MemoryHealth.Errors.length > 0 
     ? `- **Errors**: ${result.MemoryHealth.Errors.join(', ')}` 

@@ -191,6 +191,8 @@ export interface MemoryHealth {
   Status: string;
   Errors: string[];
   TotalMemoryGB?: number;
+  UsedMemoryGB?: number;
+  FreeMemoryGB?: number;
   UsagePercent?: number;
 }
 

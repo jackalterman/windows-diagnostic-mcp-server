@@ -174,11 +174,16 @@ if ($checkMemoryHealth) {
             $totalMemory = ($memory | Measure-Object -Property Capacity -Sum).Sum / 1GB
             $Output.MemoryHealth.TotalMemoryGB = [math]::Round($totalMemory, 1)
             
-            # Get current memory usage
-            $computerSystem = Get-WmiObject -Class "Win32_ComputerSystem" -ErrorAction SilentlyContinue
-            if ($computerSystem) {
-                $usedMemoryPercent = [math]::Round(($computerSystem.TotalPhysicalMemory - $computerSystem.FreePhysicalMemory) / $computerSystem.TotalPhysicalMemory * 100, 1)
+            # Get current memory usage using Win32_OperatingSystem
+            $os = Get-WmiObject -Class "Win32_OperatingSystem" -ErrorAction SilentlyContinue
+            if ($os) {
+                $totalPhysicalMemory = $os.TotalVisibleMemorySize * 1024  # Convert KB to bytes
+                $freePhysicalMemory = $os.FreePhysicalMemory * 1024       # Convert KB to bytes
+                $usedMemory = $totalPhysicalMemory - $freePhysicalMemory
+                $usedMemoryPercent = [math]::Round(($usedMemory / $totalPhysicalMemory) * 100, 1)
                 $Output.MemoryHealth.UsagePercent = $usedMemoryPercent
+                $Output.MemoryHealth.UsedMemoryGB = [math]::Round($usedMemory / 1GB, 1)
+                $Output.MemoryHealth.FreeMemoryGB = [math]::Round($freePhysicalMemory / 1GB, 1)
                 
                 # Set memory health status based on usage
                 $Output.MemoryHealth.Status = if ($usedMemoryPercent -gt 90) { "Critical" }
