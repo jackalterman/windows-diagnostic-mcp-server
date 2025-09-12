@@ -137,9 +137,48 @@ if ($checkSmartStatus) {
                 $smartInfo = @{
                     Disk = $drive.Model
                     Status = "Unknown"
+                    DeviceID = $drive.DeviceID
+                    SerialNumber = $drive.SerialNumber
+                    FirmwareVersion = $drive.FirmwareRevision
+                    Manufacturer = $drive.Manufacturer
+                    MediaType = $drive.MediaType
+                    BusType = $drive.BusType
                     Attributes = @{
                         Size = [math]::Round($drive.Size / 1GB, 2)
                         Interface = $drive.InterfaceType
+                        Partitions = $drive.Partitions
+                        SectorsPerTrack = $drive.SectorsPerTrack
+                        TracksPerCylinder = $drive.TracksPerCylinder
+                        TotalCylinders = $drive.TotalCylinders
+                        TotalHeads = $drive.TotalHeads
+                        TotalSectors = $drive.TotalSectors
+                        BytesPerSector = $drive.BytesPerSector
+                        Capabilities = $drive.Capabilities
+                        CapabilityDescriptions = $drive.CapabilityDescriptions
+                        CompressionMethod = $drive.CompressionMethod
+                        ConfigManagerErrorCode = $drive.ConfigManagerErrorCode
+                        ConfigManagerUserConfig = $drive.ConfigManagerUserConfig
+                        DefaultBlockSize = $drive.DefaultBlockSize
+                        Index = $drive.Index
+                        InstallDate = $drive.InstallDate
+                        LastErrorCode = $drive.LastErrorCode
+                        MaxBlockSize = $drive.MaxBlockSize
+                        MinBlockSize = $drive.MinBlockSize
+                        NeedsCleaning = $drive.NeedsCleaning
+                        NumberOfMediaSupported = $drive.NumberOfMediaSupported
+                        PNPDeviceID = $drive.PNPDeviceID
+                        PowerManagementCapabilities = $drive.PowerManagementCapabilities
+                        PowerManagementSupported = $drive.PowerManagementSupported
+                        SCSIBus = $drive.SCSIBus
+                        SCSILogicalUnit = $drive.SCSILogicalUnit
+                        SCSIPort = $drive.SCSIPort
+                        SCSITargetId = $drive.SCSITargetId
+                        SCSITerminated = $drive.SCSITerminated
+                        Signature = $drive.Signature
+                        Status = $drive.Status
+                        StatusInfo = $drive.StatusInfo
+                        SystemName = $drive.SystemName
+                        TimeOfLastReset = $drive.TimeOfLastReset
                     }
                 }
 
@@ -149,6 +188,28 @@ if ($checkSmartStatus) {
                 
                 if ($smartData) {
                     $smartInfo.Status = if ($smartData.PredictFailure) { "Warning" } else { "Healthy" }
+                }
+
+                # Get additional SMART attributes if available
+                $smartAttributes = Get-WmiObject -Namespace "root\wmi" -Class "MSStorageDriver_FailurePredictData" -ErrorAction SilentlyContinue |
+                                 Where-Object { $_.InstanceName -like "*$($drive.Index)*" }
+                
+                if ($smartAttributes) {
+                    $smartInfo.SMARTAttributes = @{
+                        VendorSpecific = $smartAttributes.VendorSpecific
+                        VendorSpecificLength = $smartAttributes.VendorSpecificLength
+                    }
+                }
+
+                # Get temperature if available
+                $tempData = Get-WmiObject -Namespace "root\wmi" -Class "MSStorageDriver_FailurePredictThresholds" -ErrorAction SilentlyContinue |
+                           Where-Object { $_.InstanceName -like "*$($drive.Index)*" }
+                
+                if ($tempData) {
+                    $smartInfo.TemperatureThresholds = @{
+                        VendorSpecific = $tempData.VendorSpecific
+                        VendorSpecificLength = $tempData.VendorSpecificLength
+                    }
                 }
 
                 $Output.SMARTStatus += $smartInfo
@@ -173,6 +234,25 @@ if ($checkMemoryHealth) {
         if ($memory) {
             $totalMemory = ($memory | Measure-Object -Property Capacity -Sum).Sum / 1GB
             $Output.MemoryHealth.TotalMemoryGB = [math]::Round($totalMemory, 1)
+            
+            # Detailed RAM module information
+            $Output.MemoryHealth.RAMModules = @()
+            foreach ($module in $memory) {
+                $moduleInfo = @{
+                    CapacityGB = [math]::Round($module.Capacity / 1GB, 2)
+                    Speed = $module.Speed
+                    Manufacturer = $module.Manufacturer
+                    PartNumber = $module.PartNumber
+                    SerialNumber = $module.SerialNumber
+                    FormFactor = $module.FormFactor
+                    MemoryType = $module.MemoryType
+                    DeviceLocator = $module.DeviceLocator
+                    BankLabel = $module.BankLabel
+                    ConfiguredClockSpeed = $module.ConfiguredClockSpeed
+                    ConfiguredVoltage = $module.ConfiguredVoltage
+                }
+                $Output.MemoryHealth.RAMModules += $moduleInfo
+            }
             
             # Get current memory usage using Win32_OperatingSystem
             $os = Get-WmiObject -Class "Win32_OperatingSystem" -ErrorAction SilentlyContinue

@@ -44,14 +44,36 @@ export async function hardwareMonitor(args: {
             ? result.FanSpeeds.map(f => `- **${f.Fan}**: ${f.SpeedRPM} RPM`).join('\n')
             : 'No fan speed data available.';
 
-        // Format SMART status
+        // Format SMART status with detailed information
         const smartStatusText = result.SMARTStatus && result.SMARTStatus.length > 0
             ? result.SMARTStatus.map(s => {
-                const sizeInfo = s.Attributes.Size ? ` (${s.Attributes.Size}GB)` : '';
-                const usageInfo = s.Attributes.Usage ? ` - ${s.Attributes.Usage}% used` : '';
-                const interfaceInfo = s.Attributes.Interface ? ` - ${s.Attributes.Interface}` : '';
-                return `- **${s.Disk}**: ${s.Status}${sizeInfo}${usageInfo}${interfaceInfo}`;
-              }).join('\n')
+                let driveInfo = `- **${s.Disk}**: ${s.Status}`;
+                
+                // Basic information
+                if (s.Attributes.Size) driveInfo += ` (${s.Attributes.Size}GB)`;
+                if (s.Attributes.Interface) driveInfo += ` - ${s.Attributes.Interface}`;
+                if (s.Manufacturer) driveInfo += ` - ${s.Manufacturer}`;
+                
+                // Additional details on new lines for better readability
+                const details = [];
+                if (s.SerialNumber) details.push(`  - Serial: ${s.SerialNumber}`);
+                if (s.FirmwareVersion) details.push(`  - Firmware: ${s.FirmwareVersion}`);
+                if (s.MediaType) details.push(`  - Media Type: ${s.MediaType}`);
+                if (s.Attributes.Partitions) details.push(`  - Partitions: ${s.Attributes.Partitions}`);
+                if (s.Attributes.Status) details.push(`  - Status: ${s.Attributes.Status}`);
+                if (s.Attributes.BytesPerSector) details.push(`  - Sector Size: ${s.Attributes.BytesPerSector} bytes`);
+                if (s.Attributes.TotalSectors) details.push(`  - Total Sectors: ${s.Attributes.TotalSectors.toLocaleString()}`);
+                if (s.Attributes.CapabilityDescriptions && s.Attributes.CapabilityDescriptions.length > 0) {
+                    details.push(`  - Capabilities: ${s.Attributes.CapabilityDescriptions.join(', ')}`);
+                }
+                if (s.Attributes.InstallDate) details.push(`  - Install Date: ${s.Attributes.InstallDate}`);
+                
+                if (details.length > 0) {
+                    driveInfo += '\n' + details.join('\n');
+                }
+                
+                return driveInfo;
+              }).join('\n\n')
             : 'No drive health data available.';
 
 // Format memory health
@@ -61,8 +83,16 @@ ${result.MemoryHealth.TotalMemoryGB ? `- **Total Memory**: ${result.MemoryHealth
 ${result.MemoryHealth.UsedMemoryGB ? `- **Used Memory**: ${result.MemoryHealth.UsedMemoryGB}GB` : ''}
 ${result.MemoryHealth.FreeMemoryGB ? `- **Free Memory**: ${result.MemoryHealth.FreeMemoryGB}GB` : ''}
 ${result.MemoryHealth.UsagePercent ? `- **Usage**: ${result.MemoryHealth.UsagePercent}%` : ''}
+${result.MemoryHealth.RAMModules && result.MemoryHealth.RAMModules.length > 0 
+    ? `\n**RAM Modules:**\n${result.MemoryHealth.RAMModules.map((module, index) => 
+        `  ${index + 1}. **${module.DeviceLocator || 'Unknown Slot'}**: ${module.CapacityGB}GB` +
+        `${module.Speed ? ` @ ${module.Speed}MHz` : ''}` +
+        `${module.Manufacturer ? ` (${module.Manufacturer})` : ''}` +
+        `${module.PartNumber ? ` - ${module.PartNumber}` : ''}`
+      ).join('\n')}` 
+    : ''}
 ${result.MemoryHealth.Errors && result.MemoryHealth.Errors.length > 0 
-    ? `- **Errors**: ${result.MemoryHealth.Errors.join(', ')}` 
+    ? `\n- **Errors**: ${result.MemoryHealth.Errors.join(', ')}` 
     : ''}`
     : 'Memory health data not available.';
 

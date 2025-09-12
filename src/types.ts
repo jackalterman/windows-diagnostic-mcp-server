@@ -184,7 +184,71 @@ export interface FanSpeedReading {
 export interface SmartStatus {
   Disk: string;
   Status: string;
-  Attributes: Record<string, unknown>;
+  DeviceID?: string;
+  SerialNumber?: string;
+  FirmwareVersion?: string;
+  Manufacturer?: string;
+  MediaType?: string;
+  BusType?: number;
+  Attributes: {
+    Size: number;
+    Interface: string;
+    Partitions?: number;
+    SectorsPerTrack?: number;
+    TracksPerCylinder?: number;
+    TotalCylinders?: number;
+    TotalHeads?: number;
+    TotalSectors?: number;
+    BytesPerSector?: number;
+    Capabilities?: number[];
+    CapabilityDescriptions?: string[];
+    CompressionMethod?: string;
+    ConfigManagerErrorCode?: number;
+    ConfigManagerUserConfig?: boolean;
+    DefaultBlockSize?: number;
+    Index?: number;
+    InstallDate?: string;
+    LastErrorCode?: number;
+    MaxBlockSize?: number;
+    MinBlockSize?: number;
+    NeedsCleaning?: boolean;
+    NumberOfMediaSupported?: number;
+    PNPDeviceID?: string;
+    PowerManagementCapabilities?: number[];
+    PowerManagementSupported?: boolean;
+    SCSIBus?: number;
+    SCSILogicalUnit?: number;
+    SCSIPort?: number;
+    SCSITargetId?: number;
+    SCSITerminated?: boolean;
+    Signature?: number;
+    Status?: string;
+    StatusInfo?: number;
+    SystemName?: string;
+    TimeOfLastReset?: string;
+  };
+  SMARTAttributes?: {
+    VendorSpecific?: number[];
+    VendorSpecificLength?: number;
+  };
+  TemperatureThresholds?: {
+    VendorSpecific?: number[];
+    VendorSpecificLength?: number;
+  };
+}
+
+export interface RAMModule {
+  CapacityGB: number;
+  Speed?: number;
+  Manufacturer?: string;
+  PartNumber?: string;
+  SerialNumber?: string;
+  FormFactor?: number;
+  MemoryType?: number;
+  DeviceLocator?: string;
+  BankLabel?: string;
+  ConfiguredClockSpeed?: number;
+  ConfiguredVoltage?: number;
 }
 
 export interface MemoryHealth {
@@ -194,6 +258,7 @@ export interface MemoryHealth {
   UsedMemoryGB?: number;
   FreeMemoryGB?: number;
   UsagePercent?: number;
+  RAMModules?: RAMModule[];
 }
 
 export interface HardwareMonitorOutput {
