@@ -12,7 +12,8 @@ import * as eventViewer from './tools/event_viewer.js';
 import * as apps from './tools/apps_and_processes.js';
 import { hardwareMonitor } from './tools/hardware_monitor.js';
 import * as driverScanner from './tools/driver_scanner.js';
-import type { EventViewerParams, HardwareMonitorParams, SystemInfoParams, DriverScannerParams } from './types.js';
+import * as wmiQuery from './tools/wmi_query.js';
+import type { EventViewerParams, HardwareMonitorParams, SystemInfoParams, DriverScannerParams, WmiQueryParams } from './types.js';
 import * as usageGuide from './tools/usage_guide_and_administrator_check.js';
 
 class WindowsDiagnosticsServer {
@@ -492,6 +493,39 @@ class WindowsDiagnosticsServer {
                 },
               },
             },
+          },
+          {
+            name: 'wmi_query',
+            description: 'Securely query WMI (Windows Management Instrumentation) with comprehensive security controls. Only allows read-only operations on approved WMI classes for system information gathering.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                className: {
+                  type: 'string',
+                  description: 'WMI class name to query (must be in approved whitelist)',
+                },
+                properties: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Specific properties to retrieve (optional, defaults to all)',
+                },
+                whereClause: {
+                  type: 'string',
+                  description: 'WHERE clause for filtering results (subject to security validation)',
+                },
+                maxResults: {
+                  type: 'number',
+                  description: 'Maximum number of results to return (default: 100, max: 1000)',
+                  default: 100,
+                },
+                timeoutSeconds: {
+                  type: 'number',
+                  description: 'Query timeout in seconds (default: 30, max: 60)',
+                  default: 30,
+                },
+              },
+              required: ['className'],
+            }
           }
         ],
       };
@@ -540,6 +574,8 @@ class WindowsDiagnosticsServer {
             return await usageGuide.getSystemInfo(args as SystemInfoParams);
           case 'scan_drivers':
             return await driverScanner.scanDrivers(args as DriverScannerParams);
+          case 'wmi_query':
+            return await wmiQuery.wmiQuery(args as unknown as WmiQueryParams);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }

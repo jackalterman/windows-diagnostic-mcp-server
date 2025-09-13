@@ -765,3 +765,43 @@ export interface DriverScannerParams {
   checkHealth?: boolean;
   detailed?: boolean;
 }
+
+// WMI Query Types
+export interface WmiQueryParams {
+  className: string;
+  properties?: string[];
+  whereClause?: string;
+  maxResults?: number;
+  timeoutSeconds?: number;
+}
+
+export interface WmiQueryInfo {
+  ClassName: string;
+  Properties: string[];
+  WhereClause: string;
+  MaxResults: number;
+  ActualResults: number;
+}
+
+export interface WmiSecurityInfo {
+  ClassApproved: boolean;
+  QuerySanitized: boolean;
+  TimeoutApplied: boolean;
+  SecuritySummary: {
+    ClassWhitelisted: boolean;
+    QuerySanitized: boolean;
+    TimeoutApplied: boolean;
+    MaxResultsLimited: boolean;
+    ReadOnlyOperation: boolean;
+  };
+}
+
+export interface WmiQueryOutput {
+  Success: boolean;
+  Data: Array<Record<string, any>>;
+  QueryInfo: WmiQueryInfo;
+  SecurityInfo: WmiSecurityInfo;
+  Errors: string[];
+  Warnings: string[];
+  ExecutionTime: number;
+}
